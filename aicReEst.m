@@ -5,7 +5,7 @@ classdef aicReEst < RegFit.reEstLamda
     end
     
     properties ( Constant = true )
-        Name = "aicReEst"
+        Name        RegFit.reEstType = "AIC"
     end
     
     methods

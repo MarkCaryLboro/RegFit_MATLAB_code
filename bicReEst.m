@@ -2,7 +2,7 @@ classdef bicReEst < RegFit.reEstLamda
     % Re-estimate lamda based on BIC
     
     properties ( Constant = true )
-        Name = "bicReEst"
+        Name        RegFit.reEstType = "BIC"
     end
     
     properties ( SetAccess = protected )

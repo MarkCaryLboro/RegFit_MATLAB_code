@@ -2,7 +2,7 @@ classdef fitModel
     % Nonlinear ridge regression 
     
     properties ( SetAccess = protected )
-        ReEstObj    RegFit.reEstLamdaContext                                % Lamda re-estimation algorithm
+        ReEstObj   { mustBeReEstObj( ReEstObj ) }                           % Lamda re-estimation algorithm
     end
     
     properties ( SetAccess = protected, Dependent = true )
@@ -605,5 +605,16 @@ classdef fitModel
             obj.ReEstObj = obj.ReEstObj.optimiseLamda( obj.ReEstObj.Lamda,...
                 Res, W, J, NumCovPar );
         end
+    end
+end
+
+function mustBeReEstObj( ModelObj )
+    %----------------------------------------------------------------------
+    % Validator function for ModelObj property
+    %
+    % mustBeCovModel( ModelObj )
+    %----------------------------------------------------------------------
+    if ~isempty( ModelObj ) && ~isa( ModelObj.Name,'RegFit.reEstType' )
+        error('Unrecognised covariance model option');
     end
 end

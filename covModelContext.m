@@ -5,7 +5,7 @@ classdef covModelContext
     end
     
     properties ( SetAccess = protected )
-        ModelObj    {mustBeCovModel( ModelObj )}                            % covModel object
+        ModelObj    { mustBeCovModel( ModelObj ) }                          % covModel object
         Yhat        double                                                  % Model predictions
     end
     
@@ -133,8 +133,7 @@ function mustBeCovModel( ModelObj )
     %
     % mustBeCovModel( ModelObj )
     %----------------------------------------------------------------------
-    Names = ["Power", "OLS", "Exponential", "TwoComponents"];
-    if ~isempty( ModelObj ) && ~contains( string( ModelObj.CovName ), Names )
+    if ~isempty( ModelObj ) && ~isa( ModelObj.CovName,'RegFit.covModelType' )
         error('Unrecognised covariance model option');
     end
 end
