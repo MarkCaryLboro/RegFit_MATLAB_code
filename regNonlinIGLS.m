@@ -19,8 +19,9 @@ classdef regNonlinIGLS
     end
     
     properties ( SetAccess = protected )
-        FitModelContextObj  { mustBeFitModelObj( FitModelContextObj ) }     % Regularised fit model context object
+        FitModelObj         { mustBeFitModelObj( FitModelObj ) }            % Regularised fit model object
         CovModelContextObj  RegFit.covModelContext                          % Covariance model context object
+        W                   double                                          % Data weights for IGLS analysis
     end
     
     properties ( SetAccess = protected, Dependent = true )
@@ -33,7 +34,6 @@ classdef regNonlinIGLS
         Theta               double                                          % Fit parameter vector
         Xc                  double                                          % Coded regressor data
         Yc                  double                                          % Coded observed data
-        W                   double                                          % Data weights for IGLS analysis
         Delta               double                                          % Covariance model parameters
         CovModel                                                            % Covariance model name
         Sigma2              double                                          % Variance scale parameter                                          
@@ -81,7 +81,7 @@ classdef regNonlinIGLS
             catch
                 obj.Yname = "Y";
             end
-            obj.FitModelContextObj = RegFit.fitModelContext( fitModelObj, obj.Xc, obj.Yc );
+            obj.FitModelObj = fitModelObj;
             obj.CovModelContextObj = RegFit.covModelContext( covModelObj, obj.Yc );
         end
         
@@ -105,12 +105,12 @@ classdef regNonlinIGLS
             %-------------------------------------------------------------
             % Weights must be one
             %--------------------------------------------------------------
-            obj.FitModelContextObj = obj.FitModelContextObj.setWeights( ones( obj.N, 1) );         
+            obj.W = ones( obj.N, 1);         
             %--------------------------------------------------------------
             % ROLS fit
             %--------------------------------------------------------------
-            obj.FitModelContextObj = obj.FitModelContextObj.nonLinRegFit(...
-                obj.CovModelContextObj.NumCoVParam, Options );
+            obj.FitModelObj = obj.FitModelObj.mleRegTemplate( obj.Xc,...
+                obj.Yc, obj.W, obj.NumCovPar, Options );
             %--------------------------------------------------------------
             % Calculate predictions
             %--------------------------------------------------------------
@@ -155,9 +155,9 @@ classdef regNonlinIGLS
                 Iter = Iter + 1;
                 fprintf( '\nIGLS Iteration #%d\n', Iter );
                 obj.CovModelContextObj = obj.CovModelContextObj.profileLikelihood();
-                Weights = obj.CovModelContextObj.calcWeights();
-                obj.FitModelContextObj = obj.FitModelContextObj.setWeights( Weights );
-                obj.FitModelContextObj = obj.FitModelContextObj.nonLinRegFit( obj.NumCovPar, Options );
+                obj.W = obj.CovModelContextObj.calcWeights();
+                obj.FitModelObj = obj.FitModelObj.mleRegTemplate( obj.Xc,...
+                    obj.Yc, obj.W, obj.NumCovPar, Options );                
                 ConvFlg = 100*( norm(obj.Theta - ThetaLast )/norm( obj.Theta ) ) <= 0.0001;
                 Stopflg = ConvFlg | ( Iter >= MaxIter );
             end
@@ -183,7 +183,22 @@ classdef regNonlinIGLS
             end 
             X = X(:);
             C = obj.codeX( X );
-            J = obj.FitModelContextObj.jacobean( C );
+            J = obj.FitModelObj.jacobean( C );
+        end
+        
+        function [ Res,  ResC ] = calcResiduals( obj )
+            %--------------------------------------------------------------
+            % Return training residuals
+            %
+            % [ Res, ResC ] = obj.calcResiduals();
+            %
+            % Output Arguments:
+            %
+            % Res   --> Residuals in natural units
+            % ResC  --> Residuals in coded units
+            %--------------------------------------------------------------
+            ResC = obj.FitModelObj.calcResiduals( obj.Xc, obj.Yc );
+            Res = obj.decodeY( ResC );
         end
         
         function [ Yhat, YhatC ] = predictions( obj, X )
@@ -206,7 +221,7 @@ classdef regNonlinIGLS
             end
             X = X(:);
             C = obj.codeX( X );
-            YhatC = obj.FitModelContextObj.predictions( C );
+            YhatC = obj.FitModelObj.predictions( C );
             Yhat = obj.decodeY( YhatC );
         end
         
@@ -217,7 +232,7 @@ classdef regNonlinIGLS
             % SE = obj.stdErrors();
             %
             %--------------------------------------------------------------
-            SE = obj.FitModelContextObj.stdErrors();
+            SE = obj.FitModelObj.stdErrors();
         end
         
         function [LCI, UCI] = confInt( obj, P )
@@ -248,66 +263,27 @@ classdef regNonlinIGLS
             UCI = obj.Theta + SE*T;                                         % Upper C.I.
         end
         
-        function diagnosticPlots( obj )
+        function [Ax, H] = diagnosticPlots( obj )
             %--------------------------------------------------------------
             % Model diagnostic plots
             %
             % obj.diagnosticPlots();
             %
-            %--------------------------------------------------------------  
-            [ Ax, H ] = obj.FitModelContextObj.diagnosticPlots();   
+            % Output Arguments:
+            %
+            % Ax            --> Axes handles
+            % H             --> Line handles
             %--------------------------------------------------------------
-            % Convert to natural unit scales
-            %--------------------------------------------------------------
-            Xdata = obj.X;
-            Ydata = obj.Y;
-            Xhi = obj.decodeX( H{1}(2).XData ).';
-            Yhat = obj.decodeY( H{1}(2).YData ).';
-            %--------------------------------------------------------------
-            % Change the data on the fit diagnostic & relabel
-            %--------------------------------------------------------------
-            Hdl = H{ 1 };
-            Hdl( 1 ).XData = Xdata;
-            Hdl( 1 ).YData = Ydata;
-            Hdl( 2 ).XData = Xhi;
-            Hdl( 2 ).YData = Yhat;
-            xlabel( Ax{ 1 }, obj.Xname );
-            ylabel( Ax{ 1 }, obj.Yname )
-            %--------------------------------------------------------------
-            % Change the data on the weighted residual diagnostic & relabel
-            %--------------------------------------------------------------
-            H{ 2 }.XData = obj.decodeY( H{2}.XData );                     % Predictions are on the x-axis
-            H{ 2 }.YData = obj.decodeY( H{2}.YData );
-            Xlab = sprintf( '%s %s', "Predicted", obj.Yname );
-            xlabel( Ax{ 2 }, Xlab );
-            Ylab = sprintf( '%s %s', "Weighted Residual", obj.Yname );
-            ylabel( Ax{ 2 }, Ylab );
-            %--------------------------------------------------------------
-            % Normal probability plot
-            %--------------------------------------------------------------
-            Hdl = H{ 3 };
-            Hdl(1).XData = obj.decodeY( Hdl(1).XData );
-            Hdl(2).XData = obj.decodeY( Hdl(2).XData );
-            Hdl(3).XData = obj.decodeY( Hdl(3).XData );
-            xlabel( Ax{ 3 }, Ylab );
-            Ax{ 3 }.XLim = [min(Hdl(1).XData), max(Hdl(1).XData)];
-            Ax{ 3 }.YLim = [min(Hdl(3).YData), max(Hdl(3).YData)];
-            %--------------------------------------------------------------
-            % Data vs. Predicted diagnostic
-            %--------------------------------------------------------------
-            Hdl = H{ 4 };
-            Hdl(1).XData = obj.decodeY( Hdl(1).XData );                     % Predictions are on the x-axis
-            Hdl(1).YData = obj.decodeY( Hdl(1).YData );                     % Predictions are on the y-axis
-            Hdl(2).XData = obj.decodeY( Hdl(2).XData );                     % Predictions are on the x-axis
-            Hdl(2).YData = obj.decodeY( Hdl(2).YData );                     % Predictions are on the y-axis
-            Xlab = sprintf( '%s %s', "Predicted", obj.Yname );
-            xlabel( Ax{ 4 }, Xlab );
-            Ylab = sprintf( '%s %s', "Observed", obj.Yname );
-            ylabel( Ax{ 4 }, Ylab );
-            Ax{ 4 }.XLim = [min(Hdl(2).XData), max(Hdl(2).XData)];
-            Ax{ 4 }.YLim = [min(Hdl(2).YData), max(Hdl(2).YData)];
+            figure;
+            Ax{ 1 } = subplot( 2, 2, 1 );
+            H{ 1 } = obj.fitsPlot( Ax{ 1 } );
+            Ax{ 2 } = subplot( 2, 2, 2 );
+            H{ 2 } = obj.weightedResPlot( Ax{ 2 } );
+            Ax{ 3 } = subplot( 2, 2, 3);
+            H{ 3 } = obj.normalPlot( Ax{ 3 } );
+            Ax{ 4 } = subplot( 2, 2, 4 );
+            H{ 4 } = obj.dataVsPredPlot( Ax{ 4 } );
         end
-        
         
         function [ParameterVectors, Ave, StanDev] = bootStrapSamples( obj, Nboot )
             %--------------------------------------------------------------
@@ -329,25 +305,25 @@ classdef regNonlinIGLS
             if ( nargin < 2 )
                 Nboot = 1000;
             end
-            [ParameterVectors, Ave, StanDev] = obj.FitModelContextObj.bootStrapSamples( ...
-                obj.NumCovPar, Nboot ); 
+            [ParameterVectors, Ave, StanDev] = obj.FitModelObj.bootStrapSamples( ...
+                obj.Xc, obj.Yc, obj.W, obj.NumCovPar, Nboot ); 
         end
     end % constructor and ordinary methods
     
     methods
         function Lam = get.Lamda( obj )
             % Return regularisation parameter
-            Lam = obj.FitModelContextObj.Lamda;
+            Lam = obj.FitModelObj.Lamda;
         end
         
         function D = get.DoF( obj )
             % Return effective number of parameters
-            D = obj.FitModelContextObj.DoF;
+            D = obj.FitModelObj.DoF;
         end
         
         function M = get.Measure( obj )
             % Return information theoretic performance measure
-            M = obj.FitModelContextObj.Measure;
+            M = obj.FitModelObj.Measure;
         end
         
         function Xc = get.Xc( obj )
@@ -360,34 +336,29 @@ classdef regNonlinIGLS
             Yc = obj.codeY( obj.Y );
         end
         
-        function D = get.Theta( obj )
+        function T = get.Theta( obj )
             % Return fit parameter vector
-            D = obj.FitModelContextObj.Delta;
-        end
-        
-        function W = get.W( obj )
-            % Return weights
-            W = obj.FitModelContextObj.W;
+            T = obj.FitModelObj.Theta;
         end
         
         function P = get.ParNames( obj )
             % Return the parameter names
-            P = obj.FitModelContextObj.ParNames;
+            P = obj.FitModelObj.ParNames;
         end
         
         function M = get.ModelName( obj )
             % Return the fit model name
-            M = obj.FitModelContextObj.ModelName;
+            M = obj.FitModelObj.ModelName;
         end
         
         function A = get.Algorithm( obj )
             % Return Lamda re-estimation algorithm
-            A = obj.FitModelContextObj.Algorithm;
+            A = obj.FitModelObj.Algorithm;
         end
         
         function N = get.N( obj )
             % Return number of data points
-            N = obj.FitModelContextObj.N;
+            N = numel( obj.X );
         end
         
         function D = get.Delta( obj )
@@ -509,6 +480,118 @@ classdef regNonlinIGLS
             Ac = obj.YLB( 2 );
             Bc = obj.YUB( 2 );
         end
+        
+        
+        function H = dataVsPredPlot( obj, Ax )
+            %--------------------------------------------------------------
+            % Data versus predictions plot diagnostic
+            %
+            % H = obj.dataVsPredPlot( Ax );
+            %
+            % Input Arguments:
+            %
+            % Ax        --> Axes handle
+            %
+            % Output Arguments:
+            %
+            % H         --> Handle to line objects 
+            %--------------------------------------------------------------
+            Yhat = obj.predictions( obj.X );
+            H = plot( Yhat, obj.Y, 'bo' );
+            H.MarkerFaceColor = 'blue';
+            V = axis( Ax );
+            Mx = max( V );
+            Mn = min( V );
+            axis( repmat( [Mn Mx], 1, 2 ) );
+            hold( Ax, 'on' );
+            H(2) = plot( Ax.XLim, Ax.YLim, 'b-' );
+            axis( Ax, 'equal' );
+            hold( Ax, 'off' );
+            H(2).LineWidth = 2.0;
+            grid on
+            lab = sprintf('Predicted %s', obj.Yname);
+            xlabel( lab );
+            lab = sprintf('Observed %s', obj.Yname);
+            ylabel( lab);
+            title('Data Versus Predicted');
+        end
+        
+        function H = normalPlot( obj, Ax ) 
+            %--------------------------------------------------------------
+            % Normal probability plot for weighted residuals
+            %
+            % H = obj.normalPlot( Ax );
+            %
+            % Input Arguments:
+            %
+            % Ax        --> Axes handle
+            %
+            % Output Arguments:
+            %
+            % H         --> Handle to line objects 
+            %--------------------------------------------------------------
+            Res = obj.calcResiduals();
+            Res = Res./sqrt( obj.W );
+            H = normplot( Ax, Res );
+            lab = sprintf('Weighted Residual %s', obj.Yname);
+            xlabel( lab );
+        end
+        
+        function H = weightedResPlot( obj, Ax ) 
+            %--------------------------------------------------------------
+            % Weighted residual versus predicted plot
+            %
+            % H = obj.weightedResPlot( Ax );
+            %
+            % Input Arguments:
+            %
+            % Ax        --> Axes handle
+            %
+            % Output Arguments:
+            %
+            % H         --> Handle to line objects 
+            %--------------------------------------------------------------
+            Res = obj.calcResiduals();
+            Yhat = obj.predictions();
+            Res = Res./sqrt( obj.W );
+            H = plot( Ax, Yhat, Res, 'bo' );
+            H.MarkerFaceColor = 'blue';
+            grid on;
+            lab = sprintf('Predicted %s', obj.Yname);
+            xlabel( lab );
+            lab = sprintf('Weighted Residual %s', obj.Yname);
+            ylabel( lab );
+            title('Weighted Residual Vs. Prediction');
+        end
+        
+        function H = fitsPlot( obj, Ax, NumPts)
+            %--------------------------------------------------------------
+            % Model fits to data
+            %
+            % H = obj.fitsPlot( Ax, NumPts );
+            %
+            % Input Arguments:
+            %
+            % Ax        --> Axes handle
+            % NumPts    --> Number of hi res points for fitted line {101}
+            %
+            % Output Arguments:
+            %
+            % H         --> Handle to line objects 
+            %--------------------------------------------------------------
+            if ( nargin < 5 ) || ( NumPts < obj.N )
+                NumPts = 101;
+            end
+            Xhi = linspace( min( obj.X ), max( obj.X ), NumPts ).';
+            Yhi = obj.predictions( Xhi );
+            H = plot( Ax, obj.X, obj.Y, 'bo', Xhi, Yhi, 'r-' );
+            H(1).MarkerFaceColor = 'blue';
+            H(2).LineWidth = 2.0;
+            grid on
+            xlabel( obj.Xname );
+            ylabel( obj.Xname );
+            title('Model Fits')
+        end        
     end % private methods
 end
 
@@ -519,7 +602,7 @@ function mustBeFitModelObj( ModelObj )
     %
     % mustBeFitModelObj( ModelObj )
     %----------------------------------------------------------------------
-    if ~isempty( ModelObj ) && ~isa( ModelObj.Name,'RegFit.fitModelType' )
+    if ~isempty( ModelObj ) && ~isa( ModelObj.ModelName,'RegFit.fitModelType' )
         error( 'Unrecognised fit model option' );
     end
 end

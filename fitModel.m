@@ -23,6 +23,10 @@ classdef fitModel
         ModelName   RegFit.fitModelType                                     % Model name
     end    
     
+    properties ( SetAccess = protected, Dependent = true)
+        Algorithm                                                           % Lamda re-estimation algorithm
+    end
+    
     methods ( Abstract = true )
         J = jacobean( obj, x, beta )                                        % Return Jacobean matrix
         Yhat = predictions( obj, x, beta )                                  % Model predictions
@@ -118,35 +122,6 @@ classdef fitModel
             obj.ReEstObj = obj.ReEstObj.calcDoF( W, J, Lam );               % Effective number of parameters
             obj.ReEstObj = obj.ReEstObj.getMeasure( Lam, Res,...            % Calculate the performance measure
                 W, J, NumCovPar );
-        end
-        
-        function [Ax, H] = diagnosticPlots( obj, X, Y, W )
-            %--------------------------------------------------------------
-            % Model diagnostic plots
-            %
-            % obj.diagnosticPlots( X, Y, Yhat, W );
-            %
-            % Input Arguments:
-            %
-            % X             --> Input data vector
-            % Y             --> Observed response vector
-            % Yhat          --> Predicted response vector
-            % W             --> Weight vector
-            %
-            % Output Arguments:
-            %
-            % Ax            --> Axes handles
-            % H             --> Line handles
-            %--------------------------------------------------------------
-            figure;
-            Ax{ 1 } = subplot( 2, 2, 1 );
-            H{ 1 } = obj.fitsPlot( Ax{ 1 }, X, Y );
-            Ax{ 2 } = subplot( 2, 2, 2 );
-            H{ 2 } = obj.weightedResPlot( Ax{ 2 }, X, Y, W );
-            Ax{ 3 } = subplot( 2, 2, 3);
-            H{ 3 } = obj.normalPlot( Ax{ 3 }, X, Y, W );
-            Ax{ 4 } = subplot( 2, 2, 4 );
-            H{ 4 } = obj.dataVsPredPlot( Ax{ 4 }, X, Y );
         end
         
         function [ Res, Yhat] = calcResiduals( obj, X, Y, Beta )
@@ -313,6 +288,11 @@ classdef fitModel
     end % constructor and ordinary methods
     
     methods
+        function A = get.Algorithm( obj )
+            % Return re-estimation algorithm
+            A = obj.ReEstObj.Name;
+        end
+        
         function L = get.Lamda( obj )
             % Return regularisation parameter
             L = obj.ReEstObj.Lamda;
@@ -418,120 +398,6 @@ classdef fitModel
             grid on;
             ylabel( "Frequency [#]" );
             xlabel( '\lambda' );
-        end
-        
-        function H = dataVsPredPlot( obj, Ax, X, Y )
-            %--------------------------------------------------------------
-            % Data versus predictions plot diagnostic
-            %
-            % H = obj.dataVsPredPlot( Ax, X, Y );
-            %
-            % Input Arguments:
-            %
-            % Ax        --> Axes handle
-            % X         --> Input data vector
-            % Y         --> Observed response vector
-            %
-            % Output Arguments:
-            %
-            % H         --> Handle to line objects 
-            %--------------------------------------------------------------
-            Yhat = obj.predictions( X );
-            H = plot( Yhat, Y, 'bo' );
-            H.MarkerFaceColor = 'blue';
-            V = axis( Ax );
-            Mx = max( V );
-            Mn = min( V );
-            axis( repmat( [Mn Mx], 1, 2 ) );
-            hold( Ax, 'on' );
-            H(2) = plot( Ax.XLim, Ax.YLim, 'b-' );
-            axis( Ax, 'equal' );
-            hold( Ax, 'off' );
-            H(2).LineWidth = 2.0;
-            grid on
-            xlabel('Prediction');
-            ylabel('Data');
-            title('Data Versus Predicted');
-        end
-        
-        function H = normalPlot( obj, Ax, X, Y, W ) 
-            %--------------------------------------------------------------
-            % Normal probability plot for weighted residuals
-            %
-            % H = obj.normalPlot( Ax, X, Y, W );
-            %
-            % Input Arguments:
-            %
-            % Ax        --> Axes handle
-            % X         --> Input data vector
-            % Y         --> Observed response vector
-            % W         --> Weights
-            %
-            % Output Arguments:
-            %
-            % H         --> Handle to line objects 
-            %--------------------------------------------------------------
-            Res = obj.calcResiduals( X, Y );
-            Res = Res./sqrt( W );
-            H = normplot( Ax, Res );
-        end
-        
-        function H = weightedResPlot( obj, Ax, X, Y, W ) 
-            %--------------------------------------------------------------
-            % Weighted residual versus predicted plot
-            %
-            % H = obj.weightedResPlot( Ax, X, Y, W );
-            %
-            % Input Arguments:
-            %
-            % Ax        --> Axes handle
-            % X         --> Input data vector
-            % Y         --> Observed response vector
-            % W         --> Weights
-            %
-            % Output Arguments:
-            %
-            % H         --> Handle to line objects 
-            %--------------------------------------------------------------
-            [Res, Yhat] = obj.calcResiduals( X, Y );
-            Res = Res./sqrt( W );
-            H = plot( Ax, Yhat, Res, 'bo' );
-            H.MarkerFaceColor = 'blue';
-            grid on;
-            xlabel('Prediction');
-            ylabel('Weighted Residual');
-            title('Weighted Residual Vs. Prediction');
-        end
-        
-        function H = fitsPlot( obj, Ax, X, Y, NumPts)
-            %--------------------------------------------------------------
-            % Model fits to data
-            %
-            % H = obj.fitsPlot( Ax, X, Y, NumPts );
-            %
-            % Input Arguments:
-            %
-            % Ax        --> Axes handle
-            % X         --> Input data vector
-            % Y         --> Observed response vector
-            % NumPts    --> Number of hi res points for fitted line {101}
-            %
-            % Output Arguments:
-            %
-            % H         --> Handle to line objects 
-            %--------------------------------------------------------------
-            if ( nargin < 5 ) || ( NumPts < numel( X ) )
-                NumPts = 101;
-            end
-            Xhi = linspace( min( X ), max( X ), NumPts ).';
-            Yhi = obj.predictions( Xhi );
-            H = plot( Ax, X, Y, 'bo', Xhi, Yhi, 'r-' );
-            H(1).MarkerFaceColor = 'blue';
-            H(2).LineWidth = 2.0;
-            grid on
-            xlabel('X');
-            ylabel('Y');
-            title('Model Fits')
         end
         
         function PROBLEM = setUpMLE( obj, X0, X, Y, W, C, NumCovPar, Options )
