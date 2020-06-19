@@ -41,7 +41,7 @@ classdef mlm < RegFit.fitModel
             %
             % Input Arguments:
             %
-            % ReEstObj  --> RegFit.reEstLamdaContext object. Implements
+            % ReEstObj  --> RegFit.reEstLamda object. Implements
             %               regularisation parameter re-estimation 
             %               algorithm.
             % SOC       --> Mean state of charge [0, 1].

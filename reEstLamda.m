@@ -21,6 +21,92 @@ classdef reEstLamda
     end % protected Abstract method signatures
     
     methods      
+        function obj = optimiseLamda( obj, Res, W, J, NumCovPar, MaxIter )
+            %--------------------------------------------------------------
+            % Optimise regularisation parameter for the current model
+            % coefficients
+            %
+            % obj = obj.optimiseLamda( Lam, Res, W, J, NumCovPar, MaxIter );
+            %
+            % Input Arguments:
+            %
+            % Res       --> Residual vector
+            % W         --> Weight vector (including multiplication by
+            %               variance scale parameter)
+            % J         --> Jacobean matrix 
+            % NumCovPar --> Number of covariance model parameters
+            % MaxIter   --> Maximum number of iteration {25}. MaxIter is
+            %               clipped to 1 as a minimum.
+            %--------------------------------------------------------------
+            if ( nargin < 7 )
+                MaxIter = 25;                                               % Apply default
+            elseif ( MaxIter < 1 )
+                MaxIter = 1;                                                % Apply lower clip
+            end
+            %--------------------------------------------------------------
+            % Compute starting value
+            %--------------------------------------------------------------
+            Lam = obj.initialLam( Res, W, J, NumCovPar );
+            %--------------------------------------------------------------
+            % Optimise the Lamda value
+            %--------------------------------------------------------------
+            obj = obj.reEstTemplate( Lam, Res,...
+                W, J, NumCovPar, MaxIter );
+        end
+        
+        function Lam0 = initialLam( obj, Res, W, J, NumCovPar, Int, Num )
+            %--------------------------------------------------------------
+            % Select best hyper-parameter in interval supplied.
+            %
+            % Lam0 = obj.initialLam( Res, W, J, NumCovPar, Int, Num );
+            %
+            % Input Arguments:
+            %
+            % Res       --> Residual vector
+            % W         --> Weight vector (including multiplication by
+            %               variance scale parameter)
+            % J         --> Jacobean matrix 
+            % NumCovPar --> Number of covariance model parameters
+            % Int       --> 1x2 vector of Lamda interval limits 
+            %               {[0.00001, 1]}
+            % Num       --> Number of samples for interval {6}
+            %--------------------------------------------------------------
+            if ( nargin < 6 )
+                Int = [0.00001, 1];
+            end
+            if ( nargin < 7 )
+                Num = 6;
+            end
+            Int = logspace( log10( min( Int ) ), log10( max( Int ) ), Num );
+            DhDlam =  zeros( 1, Num );
+            Ok = false( 1, Num );
+            for Q = 1:Num
+                %----------------------------------------------------------
+                % Calculate absolute first derivative of h(lamda)
+                %----------------------------------------------------------
+                DhDlam( Q ) = abs( obj.firstDerivative( W, J,...
+                    Res, Int( Q ), NumCovPar ) );
+                %----------------------------------------------------------
+                % Answer must be < 1 and in the interval
+                %----------------------------------------------------------
+                if ( ~isreal( DhDlam( Q ) ) )
+                    DhDlam( Q ) = nan;
+                end
+                Ok( Q ) = ~isnan( DhDlam( Q ) );
+                Ok( Q ) = Ok( Q ) & ( DhDlam( Q ) < 1 ) &...                          
+                    ( DhDlam( Q ) >= min( Int ) ) &...
+                    ( DhDlam( Q ) <= max( Int ) );
+            end
+            [ ~, Idx ] = min( DhDlam );
+            Lam0 = Int( Idx );
+            if ~Ok( Idx )
+                %----------------------------------------------------------
+                % Warn convergence is not guaranteed
+                %----------------------------------------------------------
+                warning( 'Initial Value for Lambda = %6.5e Value Not Guaranteed to Converge', Lam0 );
+            end
+        end
+        
         function obj = reEstTemplate( obj, Lam, Res, W, J, NumCovPar, MaxIter )
             %--------------------------------------------------------------
             % Template for lamda re-estimation algorithm
