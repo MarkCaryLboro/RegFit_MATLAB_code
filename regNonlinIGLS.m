@@ -19,7 +19,7 @@ classdef regNonlinIGLS
     end
     
     properties ( SetAccess = protected )
-        FitModelContextObj  RegFit.fitModelContext                          % Regularised fit model context object
+        FitModelContextObj  { mustBeFitModelObj( FitModelContextObj ) }     % Regularised fit model context object
         CovModelContextObj  RegFit.covModelContext                          % Covariance model context object
     end
     
@@ -512,3 +512,14 @@ classdef regNonlinIGLS
     end % private methods
 end
 
+
+function mustBeFitModelObj( ModelObj )
+    %----------------------------------------------------------------------
+    % Validator function for ModelObj property
+    %
+    % mustBeFitModelObj( ModelObj )
+    %----------------------------------------------------------------------
+    if ~isempty( ModelObj ) && ~isa( ModelObj.Name,'RegFit.fitModelType' )
+        error( 'Unrecognised fit model option' );
+    end
+end

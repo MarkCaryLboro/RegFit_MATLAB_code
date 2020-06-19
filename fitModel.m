@@ -612,9 +612,9 @@ function mustBeReEstObj( ModelObj )
     %----------------------------------------------------------------------
     % Validator function for ModelObj property
     %
-    % mustBeCovModel( ModelObj )
+    % mustBeReEstObj( ModelObj )
     %----------------------------------------------------------------------
     if ~isempty( ModelObj ) && ~isa( ModelObj.Name,'RegFit.reEstType' )
-        error('Unrecognised covariance model option');
+        error('Unrecognised re-estimation model option');
     end
 end
