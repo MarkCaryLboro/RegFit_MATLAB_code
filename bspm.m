@@ -309,11 +309,12 @@ classdef bspm < RegFit.fitModel
             %
             % obj = obj.setParameterNames();
             %--------------------------------------------------------------
+            Pars = string.empty( 0, obj.NumFitCoeff );
             for Q = 1:obj.Nk
                 %----------------------------------------------------------
                 % Define the knots
                 %----------------------------------------------------------
-                Pars( Q ) = string( [ 'k_', num2str( Q ) ] );       %#ok<AGROW>
+                Pars( Q ) = string( [ 'k_', num2str( Q ) ] );       
             end
             for Q = ( obj.Nk + 1 ):obj.NumFitCoeff
                 %----------------------------------------------------------
