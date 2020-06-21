@@ -20,13 +20,13 @@ classdef regNonlinIGLS
     
     properties ( SetAccess = protected )
         FitModelObj         { mustBeFitModelObj( FitModelObj ) }            % Regularised fit model object
-        CovModelContextObj  RegFit.covModelContext                          % Covariance model context object
+        CovModelObj         { mustBeCovModelObj( CovModelObj ) }            % Covariance model context object
         W                   double                                          % Data weights for IGLS analysis
     end
     
     properties ( SetAccess = protected, Dependent = true )
         Lamda               double                                          % Regularisation coefficient
-        DoF                 double                                          % Model degree of freedom including covariance parameters
+        DoF                 double                                          % Effective number of parameters
         Algorithm                                                           % Re-estimation algorithm name
         ModelName                                                           % Fit model type
         N                                                                   % Number of data points
@@ -82,7 +82,7 @@ classdef regNonlinIGLS
                 obj.Yname = "Y";
             end
             obj.FitModelObj = fitModelObj;
-            obj.CovModelContextObj = RegFit.covModelContext( covModelObj, obj.Yc );
+            obj.CovModelObj = covModelObj;
         end
         
         function obj = regOLSestimates( obj, Options )
@@ -115,7 +115,7 @@ classdef regNonlinIGLS
             % Calculate predictions
             %--------------------------------------------------------------
             [ ~, YhatCoded ] = obj.predictions();
-            obj.CovModelContextObj = obj.CovModelContextObj.setPredictions( YhatCoded );
+            obj.W = obj.CovModelObj.calcWeights( YhatCoded );
         end
         
         function obj = regIGLS( obj, MaxIter, Options)
@@ -154,8 +154,9 @@ classdef regNonlinIGLS
                 ThetaLast = obj.Theta;
                 Iter = Iter + 1;
                 fprintf( '\nIGLS Iteration #%d\n', Iter );
-                obj.CovModelContextObj = obj.CovModelContextObj.profileLikelihood();
-                obj.W = obj.CovModelContextObj.calcWeights();
+                Yhat = obj.predictions( obj.X );
+                obj.CovModelObj = obj.CovModelObj.mleTemplate( obj.Y, Yhat );
+                obj.W = obj.CovModelObj.calcWeights( Yhat );
                 obj.FitModelObj = obj.FitModelObj.mleRegTemplate( obj.Xc,...
                     obj.Yc, obj.W, obj.NumCovPar, Options );                
                 ConvFlg = 100*( norm(obj.Theta - ThetaLast )/norm( obj.Theta ) ) <= 0.0001;
@@ -232,7 +233,7 @@ classdef regNonlinIGLS
             % SE = obj.stdErrors();
             %
             %--------------------------------------------------------------
-            SE = obj.FitModelObj.stdErrors();
+            SE = obj.FitModelObj.stdErrors( obj.Xc, obj.W );
         end
         
         function [LCI, UCI] = confInt( obj, P )
@@ -317,8 +318,8 @@ classdef regNonlinIGLS
         end
         
         function D = get.DoF( obj )
-            % Return effective number of parameters
-            D = obj.FitModelObj.DoF;
+            % Return model degrees of freedom
+            D = obj.FitModelObj.ReEstObj.DoF;
         end
         
         function M = get.Measure( obj )
@@ -363,27 +364,27 @@ classdef regNonlinIGLS
         
         function D = get.Delta( obj )
             % Return covariance model parameters
-            D = obj.CovModelContextObj.Delta;
+            D = obj.CovModelObj.Delta;
         end
         
         function M = get.CovModel( obj )
             % Return covariance model name
-            M = obj.CovModelContextObj.CovName;
+            M = obj.CovModelObj.CovName;
         end
         
         function S = get.Sigma( obj )
             % Return variance scale standard error
-            S = obj.CovModelContextObj.Sigma;
+            S = obj.CovModelObj.Sigma;
         end
 
         function S2 = get.Sigma2( obj )
             % Return variance scale parameter  
-            S2 = obj.CovModelContextObj.Sigma2;
+            S2 = obj.CovModelObj.Sigma2;
         end
         
         function C = get.NumCovPar( obj )
             % Number of covariance model parameters
-            C = obj.CovModelContextObj.NumCoVParam;
+            C = obj.CovModelObj.NumCoVParam;
         end
         
         function K = get.TotalNumPar( obj )
@@ -595,6 +596,16 @@ classdef regNonlinIGLS
     end % private methods
 end
 
+function mustBeCovModelObj( ModelObj )
+    %----------------------------------------------------------------------
+    % Validator function for ModelObj property
+    %
+    % mustBeCovModelObj( ModelObj )
+    %----------------------------------------------------------------------
+    if ~isempty( ModelObj ) && ~isa( ModelObj.CovName,'RegFit.covModelType' )
+        error( 'Unrecognised covariance model option' );
+    end
+end
 
 function mustBeFitModelObj( ModelObj )
     %----------------------------------------------------------------------

@@ -72,7 +72,8 @@ classdef mlm < RegFit.fitModel
             if ( nargin < 3 )
                 Beta = obj.Theta;                                           % Apply default
             end
-            [W, B1, B2, Idx] = obj.assignPars( Beta );                        % Assign the parameters
+            [W, B1, B2, Idx] = obj.assignPars( Beta );                      % Assign the parameters
+            X = X( X > 0 );                                                 % Remove any zero observations or NaNs will result
             N = numel( X );
             J = zeros( N, obj.NumFitCoeff );
             %--------------------------------------------------------------

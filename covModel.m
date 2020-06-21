@@ -18,7 +18,7 @@ classdef covModel
     properties ( SetAccess = protected )
         Sigma2  double                                                      % Variance scale parameter
     end
-    
+
     methods ( Abstract = true )
         W = calcWeights( obj, Yhat )
     end % abstract method signatures

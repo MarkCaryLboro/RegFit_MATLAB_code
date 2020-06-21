@@ -7,6 +7,7 @@ classdef fitModel
     
     properties ( SetAccess = protected, Dependent = true )
         Lamda       double                                                  % Regularisation parameter
+        DoF         double                                                  % Model degrees of freedom
     end
     
     properties ( Abstract = true )
