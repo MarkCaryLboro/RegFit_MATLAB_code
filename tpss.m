@@ -12,10 +12,6 @@ classdef tpss < RegFit.fitModel
                                   mustBeFinite( Nk ), mustBeReal( Nk ),... 
                                   mustBeNonempty( Nk ),...
                                   mustBeInteger( Nk ) } = 1                                              
-        D           int8        { mustBePositive( D ),...                   % Degree of interpolating polynomial vector
-                                  mustBeFinite( D ), mustBeReal( D ),... 
-                                  mustBeNonempty( D ),...
-                                  mustBeInteger( D ) } = 3
         MetaData    struct                                                  % Metadata structure
     end % immutable properties    
     
@@ -25,7 +21,15 @@ classdef tpss < RegFit.fitModel
     
     properties ( SetAccess = protected )
         ParNames    string                                                  % Parameter names
-    end    
+        Nb          int8                                                    % Number of basis functions
+        D           int8        { mustBePositive( D ),...                   % Degree of interpolating polynomial vector
+                                  mustBeFinite( D ), mustBeReal( D ),... 
+                                  mustBeNonempty( D ),...
+                                  mustBeInteger( D ) } = 2
+    end % protected properties
+    
+    properties ( Access = private )
+    end % Private properties
     
     properties ( SetAccess = protected, Dependent = true )
         K           double                                                  % Knot sequence
@@ -33,12 +37,11 @@ classdef tpss < RegFit.fitModel
     end % protected properties    
     
     properties ( Dependent = true )
-        Nb          int8                                                    % Number of basis functions
         NumFitCoeff int8                                                    % Total number of coefficients to be estimated from the data
     end % Dependent properties
     
     methods
-        function obj = bspm( ReEstObj, Nk, D, MetaData )
+        function obj = tpss( ReEstObj, Nk, D, MetaData )
             %--------------------------------------------------------------
             % class constructor
             %
@@ -51,21 +54,30 @@ classdef tpss < RegFit.fitModel
             %               algorithm.
             % Nk        --> Number of knots
             % D         --> Vector of degree of interpolating polynomials 
-            %               between knots. Must have obj.Nk + 2 elements.
-            %               If a scalar then all polynomial
-            %               degrees are the same in each segment. 
+            %               between knots. Must have ( Nk + 1 ) elements.
             % MetaData  --> Custom structure containing meta data, e.g. 
             %               temperature, voltage, pressure,...
             %--------------------------------------------------------------
             obj.ReEstObj = ReEstObj;
-            obj.Nk = Nk; 
-            obj.D = D;
+            %--------------------------------------------------------------
+            % Assign the knots
+            %--------------------------------------------------------------
+            obj.Nk = Nk;
+            %--------------------------------------------------------------
+            % Define the interpolating polynomial functions between the
+            % knots
+            %--------------------------------------------------------------
+            obj.D = int8( D );
             %--------------------------------------------------------------
             % Assign auxilary data
             %--------------------------------------------------------------
-            if ( nargin > 3 )
+            if ( nargin > 3 ) && isstruct( MetaData )
                 obj.MetaData = MetaData;
             end
+            %--------------------------------------------------------------
+            % Calculate the number of basis functions
+            %--------------------------------------------------------------
+            obj.Nb = obj.calcNumBasis();
             %--------------------------------------------------------------
             % Set the bounds for the parameters
             %--------------------------------------------------------------
@@ -100,13 +112,38 @@ classdef tpss < RegFit.fitModel
             % X     --> Input data
             % Knots --> Knot sequence { obj.K }
             %--------------------------------------------------------------
-            if ( nargin < 3 ) || isempty( Knots )
+            if ( nargin < 3 ) || isempty( Knots ) || ( numel( Knots ) ~= obj.Nk )
                 Knots = obj.K;
+            end
+            %--------------------------------------------------------------
+            % Create the basis function matrix
+            %--------------------------------------------------------------
+            B = zeros( obj.N, ( obj.Nb - 1 ) );                             % Define storage
+            Col = 0;
+            for Q = 1:( obj.Nk + 1 )
+                if Q == 1
+                    %--------------------------------------------------
+                    % Initial functions do not depend on knot positions
+                    %--------------------------------------------------
+                    Z = X;
+                else
+                    %--------------------------------------------------
+                    % Basis function do depend on knot positions
+                    %--------------------------------------------------
+                    if ( obj.Nk == 1 )
+                    end
+                end
+                for J = 1:obj.D( Q )
+                    %------------------------------------------------------
+                    % Define polynomial basis
+                    %------------------------------------------------------
+                    Col = Col + 1;
+                    B( :, Col ) = Z.^J;
+                end
             end
         end
         
-        
-        function J = jacobean( obj, X, Beta )    
+        function J = jacobean( obj, X, Beta )
             %--------------------------------------------------------------
             % Return Jacobean matrix for the supplied parameter vector
             %
@@ -184,7 +221,7 @@ classdef tpss < RegFit.fitModel
             % Retrieve knot sequence
             K = obj.Theta( 1:obj.Nk );
         end
-                
+        
         function N = get.NumFitCoeff( obj )
             % Retrieve the total number of coefficients to be fitted
             N = obj.Nk + obj.Nb;
@@ -192,12 +229,11 @@ classdef tpss < RegFit.fitModel
         
         function obj = set.D( obj, Value )
             % Make sure the vector of interpolating polynomials has the
-            % correct dimension (obj.Nk + 2)
-            if isinteger( Value ) && ( numel( Value ) == 1 ) && ( Value > 0 )
-                % set all segments to the same degree of polynomial.
-                obj.D = Value*ones( obj.NumFitCoeff, 1 );                           %#ok<MCSUP>
-            elseif all( isinteger( Value ) ) && ( numel( Value ) == ( obj.Nk + 2) ) %#ok<MCSUP>
-                obj.D = Value( : );
+            % correct dimension (obj.Nk + 1)
+            if all( isinteger( Value ) ) && ( numel( Value ) == ( obj.Nk + 1) ) %#ok<MCSUP>
+                obj.D = int8( Value( : ) );
+            else
+                error('Property "D" not assigned');
             end
         end
     end % Get set methods
@@ -206,6 +242,38 @@ classdef tpss < RegFit.fitModel
     end % protected methods
     
     methods ( Access = private )
+        function obj = setCoefficientBnds( obj, LB, UB )
+            %--------------------------------------------------------------
+            % Set the coefficient and knot bounds 
+            %
+            % obj = obj.setCoefficientBnds();          % Use default bounds
+            % obj = obj.setCoefficientBnds( LB, UB)    % Use custom bounds
+            %
+            % The default bounds are [-1, 1] for the knots, while the basis
+            % function coefficients are undounded. These are highly
+            % recommended.
+            %
+            % Input Arguments:
+            %
+            % LB    --> Lower bound vector for coefficients
+            % UB    --> Upper bound vector for coefficients
+            %--------------------------------------------------------------
+            if ( nargin == 1 ) || ( numel( LB ) ~= ( obj.NumFitCoeff ) ) || ( numel( UB ) ~= ( obj.NumFitCoeff ) )
+                LB = [ -ones( obj.Nk, 1 ); -inf( obj.Nb, 1 ) ];
+                UB = [ ones( obj.Nk, 1 ); inf( obj.Nb, 1 ) ];
+            end
+            obj.LB = LB( : );
+            obj.UB = UB( : );
+        end
+        
+        function Nb = calcNumBasis( obj )
+            %--------------------------------------------------------------
+            % Calculate the number of basis functions
+            %
+            % Nb = obj.calcNumBasis();
+            %--------------------------------------------------------------
+            Nb = sum( obj.D ) + 1;
+        end
         
         function obj = setParameterNames( obj )
             %--------------------------------------------------------------
@@ -224,7 +292,7 @@ classdef tpss < RegFit.fitModel
                 %----------------------------------------------------------
                 % Assign the basis function coefficient names
                 %----------------------------------------------------------
-                Pars( Q ) = string( [ '\beta_', num2str( Q - obj.Nk ) ] );
+                Pars( Q ) = string( [ 'b_', num2str( Q - obj.Nk ) ] );
             end
             obj.ParNames = Pars;
         end

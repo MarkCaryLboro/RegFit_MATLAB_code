@@ -341,7 +341,7 @@ classdef bspm < RegFit.fitModel
             % LB    --> Lower bound vector for coefficients
             % UB    --> Upper bound vector for coefficients
             %--------------------------------------------------------------
-            if ( nargin == 1 ) || ( numel( LB ) ~= ( obj.Nk + obj.Nb ) ) || ( numel( UB ) ~= ( obj.Nk + obj.Nb ) )
+            if ( nargin == 1 ) || ( numel( LB ) ~= ( obj.NumFitCoeff ) ) || ( numel( UB ) ~= ( obj.NumFitCoeff ) )
                 LB = [ zeros( obj.Nk, 1 ); -inf( obj.Nb, 1 ) ];
                 UB = [ ones( obj.Nk, 1 ); inf( obj.Nb, 1 ) ];
             end
