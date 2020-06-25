@@ -32,6 +32,7 @@ classdef fitModel
         J = jacobean( obj, x, beta )                                        % Return Jacobean matrix
         Yhat = predictions( obj, x, beta )                                  % Model predictions
         obj = startingValues( obj, x, y )                                   % Starting estimates for nonlinear regression
+        obj = setCoefficientBnds( obj, LB, UB )                             % Set the fit parameter bounds to the specified range
     end % abstract method signatures
     
     methods ( Access = protected, Abstract = true )
@@ -107,9 +108,13 @@ classdef fitModel
             %--------------------------------------------------------------
             [X, Y, W] = obj.parseInputs( X, Y, W );
             %--------------------------------------------------------------
-            % Generate starting values
+            % Generate starting values if required
             %--------------------------------------------------------------
-            X0 = obj.startingValues( X, Y );
+            if isempty( obj.Theta )
+                X0 = obj.startingValues( X, Y );
+            else
+                X0 = obj.Theta;
+            end
             %--------------------------------------------------------------
             % Set up and execute regularised WLS PROBLEM
             %--------------------------------------------------------------

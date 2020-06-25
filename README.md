@@ -5,7 +5,7 @@ by
 
 Mark Cary
 
-Implements general nonlinear regularised iterative least squares algorith, with optimal hyper-parameter selection.
+Implements general nonlinear regularised iterative least squares algorithm, with optimal hyper-parameter selection.
 
 Hyper-parameter selection based on fixed point iteration at each step of the nonlinear search.
 Hyper-parameter selection based on information theoretic criterion, either AICc or BIC.
@@ -35,5 +35,7 @@ Version 3.0 Changes and Enhancement 20/06/2020 by M. Cary
 Removed context layer in the code to simplify architecture. Plotting now at
 the correct level - moved to regNonlinIGLS class. Interface is more streamlined
 and compact.
+
+Added truncated power series spline model.
 
 Added truncated power series spline model for SoH predictive purposes. 

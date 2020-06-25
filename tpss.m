@@ -98,7 +98,13 @@ classdef tpss < RegFit.fitModel
             %
             % X     --> Input data clipped to range [0, 1];
             % Beta  --> Vector of parameters { obj.Theta }
-            %--------------------------------------------------------------        
+            %--------------------------------------------------------------
+            if ( nargin < 3 ) || isempty( Beta )
+                Beta = obj.Theta;
+            end
+            [ Knots, Coeff ] = obj.assignPars( Beta, obj.Nk );
+            B = obj.basis( X, Knots );
+            Yhat = B*Coeff;
         end
         
         function B = basis( obj, X, Knots )
@@ -116,31 +122,34 @@ classdef tpss < RegFit.fitModel
                 Knots = obj.K;
             end
             %--------------------------------------------------------------
+            % Augment the Knot sequence
+            %--------------------------------------------------------------
+            Knots = [ -inf; Knots( : ); inf ];
+            %--------------------------------------------------------------
             % Create the basis function matrix
             %--------------------------------------------------------------
-            B = zeros( obj.N, ( obj.Nb - 1 ) );                             % Define storage
-            Col = 0;
-            for Q = 1:( obj.Nk + 1 )
-                if Q == 1
-                    %--------------------------------------------------
-                    % Initial functions do not depend on knot positions
-                    %--------------------------------------------------
-                    Z = X;
+            B = zeros( numel( X ), ( obj.Nb - 1 ) );                             % Define storage
+            Col = 1;
+            for Q = 2:numel( Knots )
+                Z = X;
+                %----------------------------------------------------------
+                % Define polynomial basis
+                %----------------------------------------------------------
+                if Col > obj.D( 1 )
+                    %------------------------------------------------------
+                    % Apply the knot adjustment
+                    %------------------------------------------------------
+                    P = ( X >= Knots( Q - 1 ) ) & ( X <= Knots( Q ) );
+                    Z = Z - Knots( Q - 1 );
+                    Z( ~P ) = 0;
                 else
-                    %--------------------------------------------------
-                    % Basis function do depend on knot positions
-                    %--------------------------------------------------
-                    if ( obj.Nk == 1 )
-                    end
                 end
-                for J = 1:obj.D( Q )
-                    %------------------------------------------------------
-                    % Define polynomial basis
-                    %------------------------------------------------------
+                for J = 1:obj.D( Q - 1 )
+                    B( :, Col ) = Z.^double( J );
                     Col = Col + 1;
-                    B( :, Col ) = Z.^J;
                 end
             end
+            B = [ ones( size ( X ) ), B ];                                  % Add the intercept
         end
         
         function J = jacobean( obj, X, Beta )
@@ -157,7 +166,12 @@ classdef tpss < RegFit.fitModel
             if ( nargin < 3 ) || isempty( Beta )
                 Beta = obj.Theta;
             end
+            J = zeros( numel( X ), obj.NumFitCoeff );
             [ Knots, Coeff ] = obj.assignPars( Beta, obj.Nk );
+            for Q = 1:obj.Nk
+                J( :, Q ) = obj.diffBasisKnots( X, Knots )*Coeff;
+            end
+            J( :, (obj.Nk + 1):end ) = obj.basis( X, Knots );
         end
         
         function V = startingValues( obj, X, Y, Num )
@@ -242,6 +256,38 @@ classdef tpss < RegFit.fitModel
     end % protected methods
     
     methods ( Access = private )
+        function DBDK = diffBasisKnots( obj, X, Knots )
+            %--------------------------------------------------------------
+            % Differentiate the basis function matrix wrt to the knot
+            % positions.
+            %
+            % DBDK = obj.diffBasisKnots( X, Knots );
+            %
+            % Input Arguments:
+            %
+            % X     --> Data vector
+            % Knots --> Knot vector in increasing order {obj.K}
+            %--------------------------------------------------------------
+            if ( nargin < 3 ) || isempty( Knots )
+                Knots = obj.K;
+            end
+            DBDK = zeros( numel( X ), obj.Nb );
+            C = obj.D( 1 ) + 1;                                             % Last column containing monomial for the first segment
+            Knots = [ -inf; Knots( : ); inf ];                              % Augment the knot sequence
+            for Q = 1:obj.Nk
+                %----------------------------------------------------------
+                % Differentiate the basis wrt the knot positions
+                %----------------------------------------------------------
+                Idx = 1:obj.D( Q + 1 );
+                P = ( X >= Knots( Q ) ) & ( X <= Knots( Q + 1 ) );
+                for J = Idx
+                    C = C + 1;
+                    DBDK( :, C ) = -double( J )*( X - Knots( Q ) ).^( double( J-1) );
+                    DBDK( ~P, C ) = 0;
+                end
+            end
+        end
+        
         function obj = setCoefficientBnds( obj, LB, UB )
             %--------------------------------------------------------------
             % Set the coefficient and knot bounds 

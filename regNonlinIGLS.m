@@ -111,11 +111,6 @@ classdef regNonlinIGLS
             %--------------------------------------------------------------
             obj.FitModelObj = obj.FitModelObj.mleRegTemplate( obj.Xc,...
                 obj.Yc, obj.W, obj.NumCovPar, Options );
-            %--------------------------------------------------------------
-            % Calculate predictions
-            %--------------------------------------------------------------
-            [ ~, YhatCoded ] = obj.predictions();
-            obj.W = obj.CovModelObj.calcWeights( YhatCoded );
         end
         
         function obj = regIGLS( obj, MaxIter, Options)
@@ -154,8 +149,8 @@ classdef regNonlinIGLS
                 ThetaLast = obj.Theta;
                 Iter = Iter + 1;
                 fprintf( '\nIGLS Iteration #%d\n', Iter );
-                Yhat = obj.predictions( obj.X );
-                obj.CovModelObj = obj.CovModelObj.mleTemplate( obj.Y, Yhat );
+                [ ~, Yhat ] = obj.predictions( obj.X );
+                obj.CovModelObj = obj.CovModelObj.mleTemplate( obj.Yc, Yhat );
                 obj.W = obj.CovModelObj.calcWeights( Yhat );
                 obj.FitModelObj = obj.FitModelObj.mleRegTemplate( obj.Xc,...
                     obj.Yc, obj.W, obj.NumCovPar, Options );                
