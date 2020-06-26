@@ -331,21 +331,69 @@ classdef tpss < RegFit.fitModel
             if ( nargin < 3 ) || isempty( Knots )
                 Knots = obj.K;
             end
-            DBDK = zeros( numel( X ), obj.Nb );
-            C = obj.D( 1 ) + 1;                                             % Last column containing monomial for the first segment
-            Knots = [ -inf; Knots( : ); inf ];                              % Augment the knot sequence
-            for Q = 1:obj.Nk
-                %----------------------------------------------------------
-                % Differentiate the basis wrt the knot positions
-                %----------------------------------------------------------
-                Idx = 1:obj.D( Q + 1 );
-                P = ( X >= Knots( Q ) ) & ( X <= Knots( Q + 1 ) );
-                for J = Idx
-                    C = C + 1;
-                    DBDK( :, C ) = -double( J )*( X - Knots( Q ) ).^( double( J-1) );
-                    DBDK( ~P, C ) = 0;
-                end
+            %--------------------------------------------------------------
+            % Augment the Knot sequence
+            %--------------------------------------------------------------
+            Knots = [ -inf; Knots( : ); inf ];
+            %--------------------------------------------------------------
+            % Create the basis function matrix
+            %--------------------------------------------------------------
+            DBDK = zeros( numel( X ), ( obj.Nb - 1 ) );                     % Define storage
+            %--------------------------------------------------------------
+            % define the polynomials p(j) to be evaluated at the knots
+            %--------------------------------------------------------------
+            P = cell( 1, obj.Nk + 1 );
+            for Q = 1:( obj.Nk + 1 )
+                P{ Q } = double( 1:obj.D( Q ) );
             end
+            %--------------------------------------------------------------
+            % Define polynomial basis
+            %--------------------------------------------------------------
+            for Q = 2:( numel( Knots ) - 1 )
+                Z = X;
+                %----------------------------------------------------------
+                % Identify points in current segment
+                %----------------------------------------------------------
+                Idx = ( X >= Knots( Q ) ) & ( X <= Knots( Q + 1 ) );
+                %----------------------------------------------------------
+                % Compute the basis in the current segment
+                %----------------------------------------------------------
+                Finish = 0;                                                 % Point to current column
+                %----------------------------------------------------------
+                % Evaluate the polynomials prior to the current segment
+                % at the appropriate knot values
+                %----------------------------------------------------------
+                for J = 1:( Q-1 )
+                    %--------------------------------------------------
+                    % Compute columns to fill
+                    %--------------------------------------------------
+                    Start = Finish + 1;
+                    Finish = Start + obj.D( J ) - 1;
+                    if J == 1
+                        %--------------------------------------------------
+                        % First segment
+                        %--------------------------------------------------
+                        Pdata = Knots( J + 1 )*ones( sum( Idx ), 1 );
+                    else
+                        %--------------------------------------------------
+                        % Remaining segments
+                        %--------------------------------------------------
+                        Pdata = ( Knots( J + 1 ) - Knots( J ) )*ones( sum( Idx ), 1 );
+                    end
+                    R = P{ J } - 1;
+                    DBDK( Idx, Start:Finish ) = -P{ J }.*Pdata.^R;
+                end
+                %----------------------------------------------------------
+                % Add the new spline basis
+                %----------------------------------------------------------
+                Z = Z - Knots( Q );
+                Start = Finish + 1;
+                Finish = Start + obj.D( Q ) - 1;
+                R = P{ Q } - 1;
+                DBDK( :, Start:Finish ) = -P{ Q }.*Z.^R;
+                DBDK( ~Idx, Start:Finish ) = 0;
+            end
+            DBDK = [ zeros( size ( X ) ), DBDK ];                                 % Add the intercept
         end
         
         function Nb = calcNumBasis( obj )
