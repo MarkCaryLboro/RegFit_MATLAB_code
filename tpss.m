@@ -129,25 +129,61 @@ classdef tpss < RegFit.fitModel
             % Create the basis function matrix
             %--------------------------------------------------------------
             B = zeros( numel( X ), ( obj.Nb - 1 ) );                             % Define storage
-            Col = 1;
-            for Q = 2:numel( Knots )
+            %--------------------------------------------------------------
+            % define the polynomials p(j) to be evaluated at the knots
+            %--------------------------------------------------------------
+            P = cell( 1, obj.Nk + 1 );
+            for Q = 1:( obj.Nk + 1 )
+                P{ Q } = double( 1:obj.D( Q ) );
+            end
+            %--------------------------------------------------------------
+            % Set the data below the lowest knot
+            %--------------------------------------------------------------
+            B( :, 1:obj.D( 1 ) ) = X.^P{ 1 };
+            %--------------------------------------------------------------
+            % Define polynomial basis
+            %--------------------------------------------------------------
+            for Q = 2:( numel( Knots ) - 1 )
                 Z = X;
                 %----------------------------------------------------------
-                % Define polynomial basis
+                % Identify points in current segment
                 %----------------------------------------------------------
-                if Col > obj.D( 1 )
-                    %------------------------------------------------------
-                    % Apply the knot adjustment
-                    %------------------------------------------------------
-                    P = ( X >= Knots( Q - 1 ) ) & ( X <= Knots( Q ) );
-                    Z = Z - Knots( Q - 1 );
-                    Z( ~P ) = 0;
-                else
+                Idx = ( X >= Knots( Q ) ) & ( X <= Knots( Q + 1 ) );
+                %----------------------------------------------------------
+                % Compute the basis in the current segment
+                %----------------------------------------------------------
+                Finish = 0;                                                 % Point to current column
+                %----------------------------------------------------------
+                % Evaluate the polynomials prior to the current segment
+                % at the appropriate knot values
+                %----------------------------------------------------------
+                for J = 1:( Q-1 )
+                    %--------------------------------------------------
+                    % Compute columns to fill
+                    %--------------------------------------------------
+                    Start = Finish + 1;
+                    Finish = Start + obj.D( J ) - 1;
+                    if J == 1
+                        %--------------------------------------------------
+                        % First segment
+                        %--------------------------------------------------
+                        Pdata = Knots( J + 1 )*ones( sum( Idx ), 1 );
+                    else
+                        %--------------------------------------------------
+                        % Remaining segments
+                        %--------------------------------------------------
+                        Pdata = ( Knots( J + 1 ) - Knots( J ) )*ones( sum( Idx ), 1 );
+                    end
+                    B( Idx, Start:Finish ) = Pdata.^P{ J };
                 end
-                for J = 1:obj.D( Q - 1 )
-                    B( :, Col ) = Z.^double( J );
-                    Col = Col + 1;
-                end
+                %----------------------------------------------------------
+                % Add the new spline basis
+                %----------------------------------------------------------
+                Z = Z - Knots( Q );
+                Z( ~Idx ) = 0;
+                Start = Finish + 1;
+                Finish = Start + obj.D( Q ) - 1;
+                B( :, Start:Finish ) = Z.^P{ Q };
             end
             B = [ ones( size ( X ) ), B ];                                  % Add the intercept
         end
@@ -223,6 +259,30 @@ classdef tpss < RegFit.fitModel
             [ ~, Idx ] = min( L );
             V = [ InitKnots( :, Idx ); Coeff{ Idx } ]; 
         end
+        
+        function obj = setCoefficientBnds( obj, LB, UB )
+            %--------------------------------------------------------------
+            % Set the coefficient and knot bounds 
+            %
+            % obj = obj.setCoefficientBnds();          % Use default bounds
+            % obj = obj.setCoefficientBnds( LB, UB)    % Use custom bounds
+            %
+            % The default bounds are [-1, 1] for the knots, while the basis
+            % function coefficients are undounded. These are highly
+            % recommended.
+            %
+            % Input Arguments:
+            %
+            % LB    --> Lower bound vector for coefficients
+            % UB    --> Upper bound vector for coefficients
+            %--------------------------------------------------------------
+            if ( nargin == 1 ) || ( numel( LB ) ~= ( obj.NumFitCoeff ) ) || ( numel( UB ) ~= ( obj.NumFitCoeff ) )
+                LB = [ -ones( obj.Nk, 1 ); -inf( obj.Nb, 1 ) ];
+                UB = [ ones( obj.Nk, 1 ); inf( obj.Nb, 1 ) ];
+            end
+            obj.LB = LB( : );
+            obj.UB = UB( : );
+        end
     end % constructor and ordinary methods
     
     methods
@@ -286,30 +346,6 @@ classdef tpss < RegFit.fitModel
                     DBDK( ~P, C ) = 0;
                 end
             end
-        end
-        
-        function obj = setCoefficientBnds( obj, LB, UB )
-            %--------------------------------------------------------------
-            % Set the coefficient and knot bounds 
-            %
-            % obj = obj.setCoefficientBnds();          % Use default bounds
-            % obj = obj.setCoefficientBnds( LB, UB)    % Use custom bounds
-            %
-            % The default bounds are [-1, 1] for the knots, while the basis
-            % function coefficients are undounded. These are highly
-            % recommended.
-            %
-            % Input Arguments:
-            %
-            % LB    --> Lower bound vector for coefficients
-            % UB    --> Upper bound vector for coefficients
-            %--------------------------------------------------------------
-            if ( nargin == 1 ) || ( numel( LB ) ~= ( obj.NumFitCoeff ) ) || ( numel( UB ) ~= ( obj.NumFitCoeff ) )
-                LB = [ -ones( obj.Nk, 1 ); -inf( obj.Nb, 1 ) ];
-                UB = [ ones( obj.Nk, 1 ); inf( obj.Nb, 1 ) ];
-            end
-            obj.LB = LB( : );
-            obj.UB = UB( : );
         end
         
         function Nb = calcNumBasis( obj )
