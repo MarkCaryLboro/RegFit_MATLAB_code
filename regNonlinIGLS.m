@@ -148,12 +148,13 @@ classdef regNonlinIGLS
             while ~Stopflg
                 ThetaLast = obj.Theta;
                 Iter = Iter + 1;
-                fprintf( '\nIGLS Iteration #%d\n', Iter );
+                fprintf( '\nIGLS Iteration #%d', Iter );
                 [ ~, Yhat ] = obj.predictions( obj.X );
                 obj.CovModelObj = obj.CovModelObj.mleTemplate( obj.Yc, Yhat );
                 obj.W = obj.CovModelObj.calcWeights( Yhat );
                 obj.FitModelObj = obj.FitModelObj.mleRegTemplate( obj.Xc,...
-                    obj.Yc, obj.W, obj.NumCovPar, Options );                
+                    obj.Yc, obj.W, obj.NumCovPar, Options );    
+                fprintf( ' - lambda = %6.4e', obj.Lamda );
                 ConvFlg = 100*( norm(obj.Theta - ThetaLast )/norm( obj.Theta ) ) <= 0.0001;
                 Stopflg = ConvFlg | ( Iter >= MaxIter );
             end
@@ -585,7 +586,7 @@ classdef regNonlinIGLS
             H(2).LineWidth = 2.0;
             grid on
             xlabel( obj.Xname );
-            ylabel( obj.Xname );
+            ylabel( obj.Yname );
             title('Model Fits')
         end        
     end % private methods
