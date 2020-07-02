@@ -367,7 +367,7 @@ classdef tpss < RegFit.fitModel
             if Dk == 1
                 Finish = 0;                                                 % Derivative wrt first knot
             else
-                Finish = obj.D( Dk - 1 );
+                Finish = Seg( 1 );
             end
             for Q = 1:numel( Seg )
                 %----------------------------------------------------------

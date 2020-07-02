@@ -179,7 +179,6 @@ classdef som < RegFit.fitModel
             V(1) = ( 1 - V(2) )./obj.SOC;
         end
         
-        
         function obj = setCoefficientBnds( obj, LB, UB )
             %--------------------------------------------------------------
             % Set bound constraints for model fit parameters
