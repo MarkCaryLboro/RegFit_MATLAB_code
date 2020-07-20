@@ -343,13 +343,12 @@ classdef tpss < RegFit.fitModel
         end
     end % protected methods
     
-    methods ( Access = private )
-        function Fh = genNonlinCon( obj, Beta )
+    methods ( Access = private )       
+        function [ Aineq, bineq ] = genIneqCon( obj, Beta )                 %#ok<INUSD>
             %--------------------------------------------------------------
-            % Generate the required nonlinear constraint - first derivative
-            % at the knot must be continuous.
+            % Generate the inequality constraints for the knots
             %
-            % Fh = obj.genNonlinCon( Beta );
+            % [ C.Aineq, C.bineq ] = obj.nonlinCon( Beta );
             %
             % Input Arguments:
             %
@@ -358,29 +357,20 @@ classdef tpss < RegFit.fitModel
             %
             % Output arguments:
             %
-            % Fh    --> Function handle to nonlinear constraints method
+            % Aineq --> Linear inequality constraint coefficient matrix
+            % bineq --> Linear inequality constraint threshold vector
             %--------------------------------------------------------------
-            Fh = @(Beta)obj.nonlinCon( Beta );
-        end
-        
-        function [ Cineq, Ceq ] = nonlinCon( obj, Beta )
-            %--------------------------------------------------------------
-            % Evaluate the noninear constraint, which implies the first
-            % derivative at each not is continuous
-            %
-            % [ Cineq, Ceq ] = obj.nonlinCon( Beta );
-            %
-            % Input Arguments:
-            %
-            % Beta  --> Coefficient vector. Decision variables for
-            %           optimisation of the cost function for RIGLS
-            %
-            % Output arguments:
-            %
-            % Cineq --> Inequality constraints Cineq( Beta ) <= 0
-            % Ceq   --> Equality constraints Ceq( Beta ) = 0
-            %--------------------------------------------------------------
-            
+            if obj.Nk > 1
+                %----------------------------------------------------------
+                % Knot order constraints
+                %----------------------------------------------------------
+                Aineq = eye( obj.Nk ) + diag( -ones( obj.Nk-1,1), 1 );
+                Aineq = Aineq( 1:obj.Nk-1, : );
+                bineq = -0.02*size( Aineq, 1 );
+            else
+                Aineq = [];
+                bineq = [];
+            end
         end
         
         function DBDK = diffBasisKnots( obj, X, Knots, Dk )
