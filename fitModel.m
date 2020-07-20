@@ -360,7 +360,7 @@ classdef fitModel
             F = obj.predictions( X, Beta );
             G = J.'*diag( (1./W) )*( ( F - Y ) ) + Lam*Beta;
         end
-       end % protected methods
+    end % protected methods
     
     methods ( Access = private )
         function histogram( obj, V, Bins )
@@ -439,7 +439,6 @@ classdef fitModel
     end % private and helper methods
     
     methods ( Hidden = true )
-        
         function obj = olsRegTemplate( obj, X, Y, NumCovPar, Options )
             %--------------------------------------------------------------
             % Regularised MLE for model
@@ -477,7 +476,10 @@ classdef fitModel
             obj.ReEstObj = obj.ReEstObj.optimiseLamda( obj.ReEstObj.Lamda,...
                 Res, W, J, NumCovPar );
         end
-    end
+    end % Hidden methods
+    
+    methods ( Static = true, Hidden = true )
+    end % static methods
 end
 
 function mustBeReEstObj( ModelObj )

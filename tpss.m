@@ -313,9 +313,76 @@ classdef tpss < RegFit.fitModel
     end % Get set methods
     
     methods ( Access = protected )
+        function C = mleConstraints( obj, Beta ) 
+            %--------------------------------------------------------------
+            % Provide custom constraints for optimisation. See help for
+            % fmincon for definitions.
+            %
+            % Input Arguments:
+            %
+            % Beta  --> Coefficient vector. Decision variables for
+            %           optimisation of the cost function for RIGLS
+            %
+            % Output Arguments:
+            %
+            % C     --> Structure of constraints with fields:
+            %           Aineq       --> Linear inequality constraint
+            %                           coefficient matrix.
+            %           bineq       --> Linear inequality constraints bound
+            %                           matrix.
+            %           Aeq         --> Linear equality constraint
+            %                           coefficient matrix.
+            %           beq         --> Linear equality constraints bound
+            %                           matrix.
+            %           nonlcon     --> Nonlinear constraints function
+            %--------------------------------------------------------------
+            [ C.Aineq, C.bineq ] = obj.genIneqCon( Beta );
+            C.Aeq = [];
+            C.beq = [];
+            C.nonlcon = [];
+        end
     end % protected methods
     
     methods ( Access = private )
+        function Fh = genNonlinCon( obj, Beta )
+            %--------------------------------------------------------------
+            % Generate the required nonlinear constraint - first derivative
+            % at the knot must be continuous.
+            %
+            % Fh = obj.genNonlinCon( Beta );
+            %
+            % Input Arguments:
+            %
+            % Beta  --> Coefficient vector. Decision variables for
+            %           optimisation of the cost function for RIGLS
+            %
+            % Output arguments:
+            %
+            % Fh    --> Function handle to nonlinear constraints method
+            %--------------------------------------------------------------
+            Fh = @(Beta)obj.nonlinCon( Beta );
+        end
+        
+        function [ Cineq, Ceq ] = nonlinCon( obj, Beta )
+            %--------------------------------------------------------------
+            % Evaluate the noninear constraint, which implies the first
+            % derivative at each not is continuous
+            %
+            % [ Cineq, Ceq ] = obj.nonlinCon( Beta );
+            %
+            % Input Arguments:
+            %
+            % Beta  --> Coefficient vector. Decision variables for
+            %           optimisation of the cost function for RIGLS
+            %
+            % Output arguments:
+            %
+            % Cineq --> Inequality constraints Cineq( Beta ) <= 0
+            % Ceq   --> Equality constraints Ceq( Beta ) = 0
+            %--------------------------------------------------------------
+            
+        end
+        
         function DBDK = diffBasisKnots( obj, X, Knots, Dk )
             %--------------------------------------------------------------
             % Differentiate the basis function matrix wrt to the knot

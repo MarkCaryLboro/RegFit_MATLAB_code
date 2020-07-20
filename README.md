@@ -36,8 +36,6 @@ Removed context layer in the code to simplify architecture. Plotting now at
 the correct level - moved to regNonlinIGLS class. Interface is more streamlined
 and compact.
 
-Added truncated power series spline (TPSS) implementation.
-
-Added truncated power series spline model.
-
 Added truncated power series spline model for SoH predictive purposes. 
+
+Added nonlinear constraints implementation - useful for splines.
