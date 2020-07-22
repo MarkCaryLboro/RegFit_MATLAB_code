@@ -6,5 +6,6 @@ classdef fitModelType < int8
         MLM  (1)
         HASM (2)
         BSPL (3)
+        TPSS (4)
     end
 end

@@ -17,6 +17,10 @@ classdef bspm < RegFit.fitModel
                                   mustBeNonempty( D ),...
                                   mustBeInteger( D ) } = 3
         MetaData    struct                                                  % Metadata structure
+        DeltaKnot   double      { mustBePositive( DeltaKnot ),...           % Minimum knot difference
+                                  mustBeFinite( DeltaKnot ),...
+                                  mustBeReal( DeltaKnot ),... 
+                                  mustBeNonempty( DeltaKnot ) } = 0.05;
     end % immutable properties
     
     properties ( SetAccess = protected, Dependent = true )
@@ -75,6 +79,30 @@ classdef bspm < RegFit.fitModel
             % Set the parameter names
             %--------------------------------------------------------------
             obj = obj.setParameterNames();
+        end
+        
+        function obj = setCoefficientBnds( obj, LB, UB )
+            %--------------------------------------------------------------
+            % Set the coefficient and knot bounds 
+            %
+            % obj = obj.setCoefficientBnds();          % Use default bounds
+            % obj = obj.setCoefficientBnds( LB, UB)    % Use custom bounds
+            %
+            % The default bounds are [0, 1] for the knots, while the basis
+            % function coefficients are undounded. These are highly
+            % recommended.
+            %
+            % Input Arguments:
+            %
+            % LB    --> Lower bound vector for coefficients
+            % UB    --> Upper bound vector for coefficients
+            %--------------------------------------------------------------
+            if ( nargin == 1 ) || ( numel( LB ) ~= ( obj.NumFitCoeff ) ) || ( numel( UB ) ~= ( obj.NumFitCoeff ) )
+                LB = [ zeros( obj.Nk, 1 ); -inf( obj.Nb, 1 ) ];
+                UB = [ ones( obj.Nk, 1 ); inf( obj.Nb, 1 ) ];
+            end
+            obj.LB = LB( : );
+            obj.UB = UB( : );
         end
         
         function B = basis( obj, X, Knots )
@@ -299,7 +327,7 @@ classdef bspm < RegFit.fitModel
                 %
                 % TODO: make this more generic!!!!!
                 %--------------------------------------------------------------
-                Bineq = -0.05*ones( ( obj.Nk - 1 ), 1 );
+                Bineq = -obj.DeltaKnot*ones( ( obj.Nk - 1 ), 1 );
             end
         end
         
@@ -309,11 +337,12 @@ classdef bspm < RegFit.fitModel
             %
             % obj = obj.setParameterNames();
             %--------------------------------------------------------------
+            Pars = string.empty( 0, obj.NumFitCoeff );
             for Q = 1:obj.Nk
                 %----------------------------------------------------------
                 % Define the knots
                 %----------------------------------------------------------
-                Pars( Q ) = string( [ 'k_', num2str( Q ) ] );       %#ok<AGROW>
+                Pars( Q ) = string( [ 'k_', num2str( Q ) ] );       
             end
             for Q = ( obj.Nk + 1 ):obj.NumFitCoeff
                 %----------------------------------------------------------
@@ -322,30 +351,6 @@ classdef bspm < RegFit.fitModel
                 Pars( Q ) = string( [ '\beta_', num2str( Q - obj.Nk ) ] );
             end
             obj.ParNames = Pars;
-        end
-        
-        function obj = setCoefficientBnds( obj, LB, UB )
-            %--------------------------------------------------------------
-            % Set the coefficient and knot bounds 
-            %
-            % obj = obj.setCoefficientBnds();          % Use default bounds
-            % obj = obj.setCoefficientBnds( LB, UB)    % Use custom bounds
-            %
-            % The default bounds are [0, 1] for the knots, while the basis
-            % function coefficients are undounded. These are highly
-            % recommended.
-            %
-            % Input Arguments:
-            %
-            % LB    --> Lower bound vector for coefficients
-            % UB    --> Upper bound vector for coefficients
-            %--------------------------------------------------------------
-            if ( nargin == 1 ) || ( numel( LB ) ~= ( obj.Nk + obj.Nb ) ) || ( numel( UB ) ~= ( obj.Nk + obj.Nb ) )
-                LB = [ zeros( obj.Nk, 1 ); -inf( obj.Nb, 1 ) ];
-                UB = [ ones( obj.Nk, 1 ); inf( obj.Nb, 1 ) ];
-            end
-            obj.LB = LB( : );
-            obj.UB = UB( : );
         end
         
         function Aug = augKnots( obj, Knots )

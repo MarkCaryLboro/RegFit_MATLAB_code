@@ -178,6 +178,25 @@ classdef som < RegFit.fitModel
             V(2) = 0.5;
             V(1) = ( 1 - V(2) )./obj.SOC;
         end
+        
+        function obj = setCoefficientBnds( obj, LB, UB )
+            %--------------------------------------------------------------
+            % Set bound constraints for model fit parameters
+            %
+            % obj = obj.setCoefficientBnds( LB, UB );
+            %
+            % Input Arguments:
+            %
+            % LB    --> Lower bound for parameter estimates
+            % UB    --> Upper bound for parameter estimates
+            %--------------------------------------------------------------
+            if ( numel( LB ) == obj.NumFitCoeff ) && ( numel( UB ) == obj.NumFitCoeff )
+                obj.LB = LB( : );
+                obj.UB = UB( : );
+            else
+                error('Arguments must have %2.0d elements', obj.NumFitCoeff );
+            end
+        end
     end % constructor and ordinary methods
     
     methods

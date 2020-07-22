@@ -2,11 +2,12 @@ classdef fitModel
     % Nonlinear ridge regression 
     
     properties ( SetAccess = protected )
-        ReEstObj    RegFit.reEstLamdaContext                                % Lamda re-estimation algorithm
+        ReEstObj   { mustBeReEstObj( ReEstObj ) }                           % Lamda re-estimation algorithm
     end
     
     properties ( SetAccess = protected, Dependent = true )
         Lamda       double                                                  % Regularisation parameter
+        DoF         double                                                  % Model degrees of freedom
     end
     
     properties ( Abstract = true )
@@ -23,10 +24,15 @@ classdef fitModel
         ModelName   RegFit.fitModelType                                     % Model name
     end    
     
+    properties ( SetAccess = protected, Dependent = true)
+        Algorithm                                                           % Lamda re-estimation algorithm
+    end
+    
     methods ( Abstract = true )
         J = jacobean( obj, x, beta )                                        % Return Jacobean matrix
         Yhat = predictions( obj, x, beta )                                  % Model predictions
         obj = startingValues( obj, x, y )                                   % Starting estimates for nonlinear regression
+        obj = setCoefficientBnds( obj, LB, UB )                             % Set the fit parameter bounds to the specified range
     end % abstract method signatures
     
     methods ( Access = protected, Abstract = true )
@@ -102,9 +108,13 @@ classdef fitModel
             %--------------------------------------------------------------
             [X, Y, W] = obj.parseInputs( X, Y, W );
             %--------------------------------------------------------------
-            % Generate starting values
+            % Generate starting values if required
             %--------------------------------------------------------------
-            X0 = obj.startingValues( X, Y );
+            if isempty( obj.Theta )
+                X0 = obj.startingValues( X, Y );
+            else
+                X0 = obj.Theta;
+            end
             %--------------------------------------------------------------
             % Set up and execute regularised WLS PROBLEM
             %--------------------------------------------------------------
@@ -118,35 +128,6 @@ classdef fitModel
             obj.ReEstObj = obj.ReEstObj.calcDoF( W, J, Lam );               % Effective number of parameters
             obj.ReEstObj = obj.ReEstObj.getMeasure( Lam, Res,...            % Calculate the performance measure
                 W, J, NumCovPar );
-        end
-        
-        function [Ax, H] = diagnosticPlots( obj, X, Y, W )
-            %--------------------------------------------------------------
-            % Model diagnostic plots
-            %
-            % obj.diagnosticPlots( X, Y, Yhat, W );
-            %
-            % Input Arguments:
-            %
-            % X             --> Input data vector
-            % Y             --> Observed response vector
-            % Yhat          --> Predicted response vector
-            % W             --> Weight vector
-            %
-            % Output Arguments:
-            %
-            % Ax            --> Axes handles
-            % H             --> Line handles
-            %--------------------------------------------------------------
-            figure;
-            Ax{ 1 } = subplot( 2, 2, 1 );
-            H{ 1 } = obj.fitsPlot( Ax{ 1 }, X, Y );
-            Ax{ 2 } = subplot( 2, 2, 2 );
-            H{ 2 } = obj.weightedResPlot( Ax{ 2 }, X, Y, W );
-            Ax{ 3 } = subplot( 2, 2, 3);
-            H{ 3 } = obj.normalPlot( Ax{ 3 }, X, Y, W );
-            Ax{ 4 } = subplot( 2, 2, 4 );
-            H{ 4 } = obj.dataVsPredPlot( Ax{ 4 }, X, Y );
         end
         
         function [ Res, Yhat] = calcResiduals( obj, X, Y, Beta )
@@ -313,6 +294,11 @@ classdef fitModel
     end % constructor and ordinary methods
     
     methods
+        function A = get.Algorithm( obj )
+            % Return re-estimation algorithm
+            A = obj.ReEstObj.Name;
+        end
+        
         function L = get.Lamda( obj )
             % Return regularisation parameter
             L = obj.ReEstObj.Lamda;
@@ -374,7 +360,7 @@ classdef fitModel
             F = obj.predictions( X, Beta );
             G = J.'*diag( (1./W) )*( ( F - Y ) ) + Lam*Beta;
         end
-       end % protected methods
+    end % protected methods
     
     methods ( Access = private )
         function histogram( obj, V, Bins )
@@ -420,120 +406,6 @@ classdef fitModel
             xlabel( '\lambda' );
         end
         
-        function H = dataVsPredPlot( obj, Ax, X, Y )
-            %--------------------------------------------------------------
-            % Data versus predictions plot diagnostic
-            %
-            % H = obj.dataVsPredPlot( Ax, X, Y );
-            %
-            % Input Arguments:
-            %
-            % Ax        --> Axes handle
-            % X         --> Input data vector
-            % Y         --> Observed response vector
-            %
-            % Output Arguments:
-            %
-            % H         --> Handle to line objects 
-            %--------------------------------------------------------------
-            Yhat = obj.predictions( X );
-            H = plot( Yhat, Y, 'bo' );
-            H.MarkerFaceColor = 'blue';
-            V = axis( Ax );
-            Mx = max( V );
-            Mn = min( V );
-            axis( repmat( [Mn Mx], 1, 2 ) );
-            hold( Ax, 'on' );
-            H(2) = plot( Ax.XLim, Ax.YLim, 'b-' );
-            axis( Ax, 'equal' );
-            hold( Ax, 'off' );
-            H(2).LineWidth = 2.0;
-            grid on
-            xlabel('Prediction');
-            ylabel('Data');
-            title('Data Versus Predicted');
-        end
-        
-        function H = normalPlot( obj, Ax, X, Y, W ) 
-            %--------------------------------------------------------------
-            % Normal probability plot for weighted residuals
-            %
-            % H = obj.normalPlot( Ax, X, Y, W );
-            %
-            % Input Arguments:
-            %
-            % Ax        --> Axes handle
-            % X         --> Input data vector
-            % Y         --> Observed response vector
-            % W         --> Weights
-            %
-            % Output Arguments:
-            %
-            % H         --> Handle to line objects 
-            %--------------------------------------------------------------
-            Res = obj.calcResiduals( X, Y );
-            Res = Res./sqrt( W );
-            H = normplot( Ax, Res );
-        end
-        
-        function H = weightedResPlot( obj, Ax, X, Y, W ) 
-            %--------------------------------------------------------------
-            % Weighted residual versus predicted plot
-            %
-            % H = obj.weightedResPlot( Ax, X, Y, W );
-            %
-            % Input Arguments:
-            %
-            % Ax        --> Axes handle
-            % X         --> Input data vector
-            % Y         --> Observed response vector
-            % W         --> Weights
-            %
-            % Output Arguments:
-            %
-            % H         --> Handle to line objects 
-            %--------------------------------------------------------------
-            [Res, Yhat] = obj.calcResiduals( X, Y );
-            Res = Res./sqrt( W );
-            H = plot( Ax, Yhat, Res, 'bo' );
-            H.MarkerFaceColor = 'blue';
-            grid on;
-            xlabel('Prediction');
-            ylabel('Weighted Residual');
-            title('Weighted Residual Vs. Prediction');
-        end
-        
-        function H = fitsPlot( obj, Ax, X, Y, NumPts)
-            %--------------------------------------------------------------
-            % Model fits to data
-            %
-            % H = obj.fitsPlot( Ax, X, Y, NumPts );
-            %
-            % Input Arguments:
-            %
-            % Ax        --> Axes handle
-            % X         --> Input data vector
-            % Y         --> Observed response vector
-            % NumPts    --> Number of hi res points for fitted line {101}
-            %
-            % Output Arguments:
-            %
-            % H         --> Handle to line objects 
-            %--------------------------------------------------------------
-            if ( nargin < 5 ) || ( NumPts < numel( X ) )
-                NumPts = 101;
-            end
-            Xhi = linspace( min( X ), max( X ), NumPts ).';
-            Yhi = obj.predictions( Xhi );
-            H = plot( Ax, X, Y, 'bo', Xhi, Yhi, 'r-' );
-            H(1).MarkerFaceColor = 'blue';
-            H(2).LineWidth = 2.0;
-            grid on
-            xlabel('X');
-            ylabel('Y');
-            title('Model Fits')
-        end
-        
         function PROBLEM = setUpMLE( obj, X0, X, Y, W, C, NumCovPar, Options )
             %--------------------------------------------------------------
             % Set up the MLE minimisation problem
@@ -567,7 +439,6 @@ classdef fitModel
     end % private and helper methods
     
     methods ( Hidden = true )
-        
         function obj = olsRegTemplate( obj, X, Y, NumCovPar, Options )
             %--------------------------------------------------------------
             % Regularised MLE for model
@@ -605,5 +476,19 @@ classdef fitModel
             obj.ReEstObj = obj.ReEstObj.optimiseLamda( obj.ReEstObj.Lamda,...
                 Res, W, J, NumCovPar );
         end
+    end % Hidden methods
+    
+    methods ( Static = true, Hidden = true )
+    end % static methods
+end
+
+function mustBeReEstObj( ModelObj )
+    %----------------------------------------------------------------------
+    % Validator function for ModelObj property
+    %
+    % mustBeReEstObj( ModelObj )
+    %----------------------------------------------------------------------
+    if ~isempty( ModelObj ) && ~isa( ModelObj.Name,'RegFit.reEstType' )
+        error('Unrecognised re-estimation model option');
     end
 end

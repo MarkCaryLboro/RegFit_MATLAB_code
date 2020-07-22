@@ -41,7 +41,7 @@ classdef mlm < RegFit.fitModel
             %
             % Input Arguments:
             %
-            % ReEstObj  --> RegFit.reEstLamdaContext object. Implements
+            % ReEstObj  --> RegFit.reEstLamda object. Implements
             %               regularisation parameter re-estimation 
             %               algorithm.
             % SOC       --> Mean state of charge [0, 1].
@@ -72,7 +72,8 @@ classdef mlm < RegFit.fitModel
             if ( nargin < 3 )
                 Beta = obj.Theta;                                           % Apply default
             end
-            [W, B1, B2, Idx] = obj.assignPars( Beta );                        % Assign the parameters
+            [W, B1, B2, Idx] = obj.assignPars( Beta );                      % Assign the parameters
+            X = X( X > 0 );                                                 % Remove any zero observations or NaNs will result
             N = numel( X );
             J = zeros( N, obj.NumFitCoeff );
             %--------------------------------------------------------------
@@ -130,19 +131,38 @@ classdef mlm < RegFit.fitModel
             %--------------------------------------------------------------
             P = ( X <= 0 ) | ( Y <= 0);
             Xz = X( ~P );
-            Xz = [ones(size( Xz )) log10( Xz )];
-            B = Xz\log10( Y( ~P ) );
+            Xz = [ones(size( Xz )) log( Xz )];
+            B = Xz\log( Y( ~P ) );
             V(4) = B( 2 );                                                  % Initial value for power law index
             %--------------------------------------------------------------
             % Make the assumption that (Beta2*SOC + Beta1(T+273.15)) = 0. 
             % Then solve for Omega
             %--------------------------------------------------------------
-            V(1) = 10^B(1);                                                 % Initial estimate for Omega
+            V(1) = exp( B(1) );                                                 % Initial estimate for Omega
             %--------------------------------------------------------------
             % Initially set Beta1 = 1 and then Beta2 = -1/(SOC*(T+273.15));
             %--------------------------------------------------------------
             V(2) = 1.0;
             V(3) = -V(2)./( obj.SOC*( 273.15+obj.T ) );
+        end
+        
+        function obj = setCoefficientBnds( obj, LB, UB )
+            %--------------------------------------------------------------
+            % Set bound constraints for model fit parameters
+            %
+            % obj = obj.setCoefficientBnds( LB, UB );
+            %
+            % Input Arguments:
+            %
+            % LB    --> Lower bound for parameter estimates
+            % UB    --> Upper bound for parameter estimates
+            %--------------------------------------------------------------
+            if ( numel( LB ) == obj.NumFitCoeff ) && ( numel( UB ) == obj.NumFitCoeff )
+                obj.LB = LB( : );
+                obj.UB = UB( : );
+            else
+                error('Arguments must have %2.0d elements', obj.NumFitCoeff );
+            end
         end
     end % constructor and ordinary methods
     
