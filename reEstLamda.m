@@ -72,10 +72,10 @@ classdef reEstLamda
             % Num       --> Number of samples for interval {6}
             %--------------------------------------------------------------
             if ( nargin < 6 )
-                Int = [0.00001, 1];
+                Int = [0.000001, 1];
             end
             if ( nargin < 7 )
-                Num = 6;
+                Num = 7;
             end
             Int = logspace( log10( min( Int ) ), log10( max( Int ) ), Num );
             DhDlam =  zeros( 1, Num );

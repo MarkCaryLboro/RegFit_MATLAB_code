@@ -64,12 +64,12 @@ classdef aicReEst < RegFit.reEstLamda
                 %----------------------------------------------------------
                 % Clip Lamda to effectively zero
                 %----------------------------------------------------------
-                Lam = max([ sqrt(eps), Lam]);
+                Lam = max([ sqrt( eps ), Lam]);
                 %----------------------------------------------------------
                 % Apply convergence test
                 %----------------------------------------------------------
                 ConvCriteria = 100*abs( ( Lam - LastLam )/LastLam );        % Convergence criteria
-                stopflg = ( Iter>=MaxIter ) | ( ConvCriteria<0.01 );        % Stopping criterion
+                stopflg = ( Iter>=MaxIter ) | ( ConvCriteria<0.1 );         % Stopping criterion
             end
         end
         

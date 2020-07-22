@@ -13,6 +13,10 @@ classdef tpss < RegFit.fitModel
                                   mustBeNonempty( Nk ),...
                                   mustBeInteger( Nk ) } = 1                                              
         MetaData    struct                                                  % Metadata structure
+        DeltaKnot   double      { mustBePositive( DeltaKnot ),...           % Minimum knot difference
+                                  mustBeFinite( DeltaKnot ),...
+                                  mustBeReal( DeltaKnot ),... 
+                                  mustBeNonempty( DeltaKnot ) } = 0.02;
     end % immutable properties    
     
     properties ( Constant = true )
@@ -87,7 +91,7 @@ classdef tpss < RegFit.fitModel
             %--------------------------------------------------------------
             obj = obj.setParameterNames();
         end
-          
+        
         function Yhat = predictions( obj, X, Beta )
             %--------------------------------------------------------------
             % Model predictions for the supplied parameter vector.
@@ -229,9 +233,20 @@ classdef tpss < RegFit.fitModel
             InitKnots = rand( Num, obj.Nk );                                % Random knot sequences
             InitKnots = sort( InitKnots, 2 );                               % Strictly increasing knots
             %--------------------------------------------------------------
+            % Knot difference constraint is hard coded for now, but need to
+            % make it a property
+            %--------------------------------------------------------------
+            if ( obj.Nk > 1 )
+                DKnots = diff( InitKnots, 1, 2 );                           % Calculate knot differences
+                DKnots = DKnots < obj.DeltaKnot;
+                DKnots = ~any( DKnots, 2 );
+            else
+                DKnots = true( Num, 1 );
+            end
+            %--------------------------------------------------------------
             % Clip the initial random knots to (0, 1)
             %--------------------------------------------------------------
-            P = any( ( InitKnots > 0 ) & ( InitKnots < 1 ), 2 );
+            P = any( ( InitKnots > 0 ) & ( InitKnots < 1 ), 2 ) & DKnots;
             InitKnots = InitKnots( P, : );
             InitKnots = InitKnots.';
             Num = sum( P );
@@ -366,7 +381,8 @@ classdef tpss < RegFit.fitModel
                 %----------------------------------------------------------
                 Aineq = eye( obj.Nk ) + diag( -ones( obj.Nk-1,1), 1 );
                 Aineq = Aineq( 1:obj.Nk-1, : );
-                bineq = -0.02*size( Aineq, 1 );
+                Aineq = [Aineq, zeros( size( Aineq, 1 ), obj.Nb ) ];
+                bineq = -obj.DeltaKnot*ones( size( Aineq, 1 ), 1 );
             else
                 Aineq = [];
                 bineq = [];
@@ -414,18 +430,18 @@ classdef tpss < RegFit.fitModel
                 P{ Q } = double( 1:obj.D( Q ) );
             end
             %--------------------------------------------------------------
-            % Retain only the segments & polynomials required
-            %--------------------------------------------------------------
-            Seg = Seg( Dk:( Dk + 1 ) );
-            P = P( Dk:( Dk + 1 ) );
-            %--------------------------------------------------------------
             % Calculate the appropriate starting value for the pointer
             %--------------------------------------------------------------
             if Dk == 1
                 Finish = 0;                                                 % Derivative wrt first knot
             else
-                Finish = Seg( 1 );
+                Finish = Seg( Dk - 1 );
             end
+            %--------------------------------------------------------------
+            % Retain only the segments & polynomials required
+            %--------------------------------------------------------------
+            Seg = Seg( Dk:( Dk + 1 ) );
+            P = P( Dk:( Dk + 1 ) );
             for Q = 1:numel( Seg )
                 %----------------------------------------------------------
                 % Compute the derivatives
@@ -447,8 +463,9 @@ classdef tpss < RegFit.fitModel
                     Idx = ( X >= Knots( Dk ) );
                     Z = ( Knots( Dk + 1 ) - Knots( Dk ) )*ones( sum( Idx ), 1 );
                     DBDK( Idx, Start:Finish ) = P{ Q }.*Z.^R;
-                end
-                if ( Q == 2 )
+%                 end
+%                 if ( Q == 2 )
+                else
                     %------------------------------------------------------
                     % Handle case when X > K( Dk + 1 )
                     %------------------------------------------------------
@@ -501,7 +518,7 @@ classdef tpss < RegFit.fitModel
                 %----------------------------------------------------------
                 % Assign the basis function coefficient names
                 %----------------------------------------------------------
-                Pars( Q ) = string( [ 'b_', num2str( Q - obj.Nk ) ] );
+                Pars( Q ) = string( [ 'b_', num2str( Q - ( obj.Nk + 1 ) ) ] );
             end
             obj.ParNames = Pars;
         end

@@ -17,6 +17,10 @@ classdef bspm < RegFit.fitModel
                                   mustBeNonempty( D ),...
                                   mustBeInteger( D ) } = 3
         MetaData    struct                                                  % Metadata structure
+        DeltaKnot   double      { mustBePositive( DeltaKnot ),...           % Minimum knot difference
+                                  mustBeFinite( DeltaKnot ),...
+                                  mustBeReal( DeltaKnot ),... 
+                                  mustBeNonempty( DeltaKnot ) } = 0.05;
     end % immutable properties
     
     properties ( SetAccess = protected, Dependent = true )
@@ -323,7 +327,7 @@ classdef bspm < RegFit.fitModel
                 %
                 % TODO: make this more generic!!!!!
                 %--------------------------------------------------------------
-                Bineq = -0.05*ones( ( obj.Nk - 1 ), 1 );
+                Bineq = -obj.DeltaKnot*ones( ( obj.Nk - 1 ), 1 );
             end
         end
         
