@@ -26,6 +26,7 @@ classdef fitModel
     
     properties ( SetAccess = protected, Dependent = true)
         Algorithm                                                           % Lamda re-estimation algorithm
+        Measure                                                             % Information theoretic measure
     end
     
     methods ( Abstract = true )
@@ -294,6 +295,11 @@ classdef fitModel
     end % constructor and ordinary methods
     
     methods
+        function M = get.Measure( obj )
+            % Return information theoretic measure
+            M = obj.ReEstObj.Measure;
+        end
+        
         function A = get.Algorithm( obj )
             % Return re-estimation algorithm
             A = obj.ReEstObj.Name;

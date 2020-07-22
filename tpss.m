@@ -111,6 +111,34 @@ classdef tpss < RegFit.fitModel
             Yhat = B*Coeff;
         end
         
+        function Df = dfdx( obj, X, Beta )
+            %--------------------------------------------------------------
+            % Return the first derivative of the spline at the coordinates
+            % specified.
+            %
+            % Df = obj.dfdx( X, Beta );
+            %
+            % Input Arguments:
+            %
+            % X     --> Input data clipped to range [0, 1];
+            % Beta  --> Vector of parameters { obj.Theta }
+            %--------------------------------------------------------------
+            if ( nargin < 3 ) || isempty( Beta )
+                Beta = obj.Theta;                                           % Apply default
+            end
+            %--------------------------------------------------------------
+            % Use the five point stencil to calculate the derivative
+            % numerically. Step size h is assumed to be 0.0001.
+            %--------------------------------------------------------------
+            F = zeros( numel( X ), 5 );
+            H = 0.0001;
+            for Q = -2:2
+                F( :, Q + 3 ) = obj.predictions( X + Q*H, Beta );
+            end
+            F = fliplr( F );
+            Df = ( -F( :, 1 ) + 8*F( :, 2 ) - 8*F( :, 4) + F( :, 5 ) )/12/H;
+        end
+        
         function B = basis( obj, X, Knots )
             %--------------------------------------------------------------
             % Return basis function matrix for supplied knot sequence
@@ -354,11 +382,39 @@ classdef tpss < RegFit.fitModel
             [ C.Aineq, C.bineq ] = obj.genIneqCon( Beta );
             C.Aeq = [];
             C.beq = [];
-            C.nonlcon = [];
+            C.nonlcon = @(Beta)obj.smoothnessCon( Beta );
         end
     end % protected methods
     
     methods ( Access = private )       
+        function [ Cineq, Ceq ] = smoothnessCon( obj, Beta )
+            %--------------------------------------------------------------
+            % Ensure continuous first derivative at the knots
+            %
+            % [ Cineq, Ceq ] = obj.smoothnessCon( Beta )
+            %
+            % Input Arguments:
+            %
+            % Beta  --> Coefficient vector. Decision variables for
+            %           optimisation of the cost function for RIGLS
+            %
+            % Output Arguments:
+            %
+            % Cineq     --> Always empty
+            % Ceq       --> Gradient smoothness equality constraint
+            %--------------------------------------------------------------
+            Cineq = [];
+            [ X, ~ ] = obj.assignPars( Beta, obj.Nk );
+            for Q = 1:obj.Nk
+                %----------------------------------------------------------
+                % Evaluate the gradients either side of the knots
+                %----------------------------------------------------------
+                DfMinus = obj.dfdx( X - sqrt( eps ), Beta );
+                DfPlus = obj.dfdx( X + sqrt( eps ), Beta );
+                Ceq = abs( DfPlus - DfMinus );
+            end
+        end
+        
         function [ Aineq, bineq ] = genIneqCon( obj, Beta )                 %#ok<INUSD>
             %--------------------------------------------------------------
             % Generate the inequality constraints for the knots
