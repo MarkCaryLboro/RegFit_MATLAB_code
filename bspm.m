@@ -399,7 +399,7 @@ classdef bspm < RegFit.fitModel
                 Knots = obj.K;                                              % Applydefault
             end
             Aug = obj.augKnots( Knots );                                    % Generates augmented knot sequence
-            Db = myBspline.phi_calc( Aug, ( obj.D - R ) , X);               % Calculate the (m-r)th basis functions
+            Db = obj.phi_calc( Aug, ( obj.D - R ) , X);                     % Calculate the (m-r)th basis functions
             for Q=1:R
                 %----------------------------------------------------------
                 % Recursively calculate the derivative matrices H and L
