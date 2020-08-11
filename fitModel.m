@@ -79,6 +79,57 @@ classdef fitModel
             G = obj.gradients( Beta, X, Y, W, Lam );                        % Analytical gradients 
         end
         
+        function obj = mleRegTemplate( obj, X, Y, W, NumCovPar, Options )
+            %--------------------------------------------------------------
+            % Regularised MLE for model
+            %
+            % obj = obj.mleRegTemplate( X, Y, W, NumCovPar, Options );
+            %
+            % Input Arguments:
+            %
+            % X         --> Input data vector
+            % Y         --> Observed response vector
+            % W         --> Weight vector {1}
+            % NumCovPar --> Number of covariance parameters
+            % Options   --> Optimisation configuration object. Create with
+            %               Options = optimoptions( 'fmincon' );
+            %--------------------------------------------------------------
+            if ( nargin <  4 ) || isempty( W )
+                W = ones( size( X ) );
+            end
+            
+            if ( nargin < 6)
+                Options = optimoptions( 'fmincon' );
+                Options.Display = 'Iter';
+                Options.SpecifyObjectiveGradient = true;
+            end
+            %--------------------------------------------------------------
+            % Parse the input data
+            %--------------------------------------------------------------
+            [X, Y, W] = obj.parseInputs( X, Y, W );
+            %--------------------------------------------------------------
+            % Generate starting values if required
+            %--------------------------------------------------------------
+            if isempty( obj.Theta )
+                X0 = obj.startingValues( X, Y );
+            else
+                X0 = obj.Theta;
+            end
+            %--------------------------------------------------------------
+            % Set up and execute regularised WLS PROBLEM
+            %--------------------------------------------------------------
+            C = obj.mleConstraints( X0 );
+            PROBLEM = obj.setUpMLE( X0, X, Y, W, C, NumCovPar, Options );
+            obj.Theta = fmincon( PROBLEM );
+            [ ~, ~, Lam] = feval( PROBLEM.objective, obj.Theta);
+            obj.ReEstObj = obj.ReEstObj.setLamda2Value( Lam );
+            J = obj.jacobean( X, obj.Theta );
+            Res = obj.calcResiduals( X, Y, obj.Theta );
+            obj.ReEstObj = obj.ReEstObj.calcDoF( W, J, Lam );               % Effective number of parameters
+            obj.ReEstObj = obj.ReEstObj.getMeasure( Lam, Res,...            % Calculate the performance measure
+                W, J, NumCovPar );
+        end
+        
         function [ Res, Yhat] = calcResiduals( obj, X, Y, Beta )
             %--------------------------------------------------------------
             % calculate the residuals
