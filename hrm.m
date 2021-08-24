@@ -49,7 +49,7 @@ classdef hrm < RegFit.fitModel
             %
             % X       --> Dependent data
             % Beta    --> Coefficient Vector {obj.Theta}. Assumed format:
-            %             [Alpha, Beta, Eta, Z].'
+            %             [a0, a1, a2, a3].'
             %
             % Output Arguments:
             % J       --> Jacobean: [df_da0, df_da1, df_da2, df_da3]
@@ -87,7 +87,7 @@ classdef hrm < RegFit.fitModel
             Yhat = A0 + A1 * log( 1 - A2 * exp( -X./A3 ) );                 % Compute the predictions
         end % predictions
         
-        function V = startingValues( obj, X, Y )                                   
+        function V = startingValues( obj, X, Y )                            %#ok<INUSL>
             %--------------------------------------------------------------
             % Estimate starting parameter coefficient values
             %
@@ -98,7 +98,6 @@ classdef hrm < RegFit.fitModel
             % X     --> Input data
             % Y     --> Observed response data
             %--------------------------------------------------------------
-            V = zeros( obj.NumFitCoeff, 1 );
             X = X( : );
             Y = Y( : );
             A0 = 1.01 * max( Y );
@@ -135,7 +134,7 @@ classdef hrm < RegFit.fitModel
         function N = get.NfitC_( obj )
             N = double( obj.NumFitCoeff );
         end
-    end % set/get method
+    end % set/get methods
     
     methods ( Static = true )
         function [X, Y, W] = parseInputs( X, Y, W )
@@ -149,7 +148,7 @@ classdef hrm < RegFit.fitModel
             % Y             --> Observed data vector
             % W             --> Weights
             %--------------------------------------------------------------
-            P = ( X < 0 ) | ( Y < 0 );
+            P = ( X <= 0 ) | ( Y <= 0 );
             X = X( ~P );
             Y = Y( ~P );
             W = W( ~P );

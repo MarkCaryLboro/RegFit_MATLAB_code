@@ -18,6 +18,11 @@ classdef regNonlinIGLS
         Created = datetime( 'now' )                                         % Date and time object was created
     end
     
+    properties ( Access = private )
+        X_                  double                                          % Parsed regressor vector
+        Y_                  double                                          % Parsed observed data vector
+    end % private properties
+    
     properties ( SetAccess = protected )
         FitModelObj         { mustBeFitModelObj( FitModelObj ) }            % Regularised fit model object
         CovModelObj         { mustBeCovModelObj( CovModelObj ) }            % Covariance model context object
@@ -111,6 +116,8 @@ classdef regNonlinIGLS
             %--------------------------------------------------------------
             % ROLS fit
             %--------------------------------------------------------------
+            [ obj.X_, obj.Y_ ] = obj.FitModelObj.parseInputs( obj.X, obj.Y,...
+                                                            obj.W );
             obj.FitModelObj = obj.FitModelObj.mleRegTemplate( obj.Xc,...
                 obj.Yc, obj.W, obj.NumCovPar, Options );
         end
@@ -151,7 +158,7 @@ classdef regNonlinIGLS
                 ThetaLast = obj.Theta;
                 Iter = Iter + 1;
                 fprintf( '\nIGLS Iteration #%d', Iter );
-                [ ~, Yhat ] = obj.predictions( obj.X );
+                [ ~, Yhat ] = obj.predictions( obj.X_ );
                 obj.CovModelObj = obj.CovModelObj.mleTemplate( obj.Yc, Yhat );
                 obj.W = obj.CovModelObj.calcWeights( Yhat );
                 obj.FitModelObj = obj.FitModelObj.mleRegTemplate( obj.Xc,...
@@ -177,7 +184,7 @@ classdef regNonlinIGLS
             % J       --> Jacobean matrix
             %----------------------------------------------------------------
             if ( nargin < 2 )
-                X = obj.X;                                                  % Apply default
+                X = obj.X_;                                                 % Apply default
             end 
             X = X(:);
             C = obj.codeX( X );
@@ -215,7 +222,7 @@ classdef regNonlinIGLS
             % YhatC --> Predictions in coded units
             %--------------------------------------------------------------
             if ( nargin < 2 )
-                X = obj.X;
+                X = obj.X_;
             end
             X = X(:);
             C = obj.codeX( X );
@@ -326,12 +333,12 @@ classdef regNonlinIGLS
         
         function Xc = get.Xc( obj )
             % Return coded x-data (training)
-            Xc = obj.codeX( obj.X );
+            Xc = obj.codeX( obj.X_ );
         end
         
         function Yc = get.Yc( obj )
             % Return coded y-data (training)
-            Yc = obj.codeY( obj.Y );
+            Yc = obj.codeY( obj.Y_ );
         end
         
         function T = get.Theta( obj )
@@ -580,7 +587,7 @@ classdef regNonlinIGLS
             if ( nargin < 5 ) || ( NumPts < obj.N )
                 NumPts = 101;
             end
-            Xhi = linspace( min( obj.X ), max( obj.X ), NumPts ).';
+            Xhi = linspace( min( obj.X_ ), max( obj.X_ ), NumPts ).';
             Yhi = obj.predictions( Xhi );
             H = plot( Ax, obj.X, obj.Y, 'bo', Xhi, Yhi, 'r-' );
             H(1).MarkerFaceColor = 'blue';
