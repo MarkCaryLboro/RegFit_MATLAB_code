@@ -24,6 +24,11 @@ classdef regNonlinIGLS
         W                   double                                          % Data weights for IGLS analysis
     end
     
+    properties ( Access = private )
+        X_                   double                                         % Regressor vector
+        Y_                   double                                         % Observed data vector
+    end % private properties
+    
     properties ( SetAccess = protected, Dependent = true )
         Lamda               double                                          % Regularisation coefficient
         DoF                 double                                          % Effective number of parameters
@@ -107,6 +112,11 @@ classdef regNonlinIGLS
             %--------------------------------------------------------------
             obj.W = ones( obj.N, 1);         
             %--------------------------------------------------------------
+            % Remove any aberrant data
+            %--------------------------------------------------------------
+            [ obj.X_, obj.Y_, obj.W ] = obj.FitModelObj.parseInputs( obj.X,...
+                                            obj.Y, obj.W );
+            %--------------------------------------------------------------
             % ROLS fit
             %--------------------------------------------------------------
             obj.FitModelObj = obj.FitModelObj.mleRegTemplate( obj.Xc,...
@@ -149,7 +159,7 @@ classdef regNonlinIGLS
                 ThetaLast = obj.Theta;
                 Iter = Iter + 1;
                 fprintf( '\nIGLS Iteration #%d', Iter );
-                [ ~, Yhat ] = obj.predictions( obj.X );
+                [ ~, Yhat ] = obj.predictions( obj.X_ );
                 obj.CovModelObj = obj.CovModelObj.mleTemplate( obj.Yc, Yhat );
                 obj.W = obj.CovModelObj.calcWeights( Yhat );
                 obj.FitModelObj = obj.FitModelObj.mleRegTemplate( obj.Xc,...
@@ -176,12 +186,12 @@ classdef regNonlinIGLS
             % J       --> Jacobean matrix
             %----------------------------------------------------------------
             if ( nargin < 2 )
-                X = obj.X;                                                  % Apply default
+                X = obj.X_;                                                 % Apply default
             end 
             X = X(:);
             C = obj.codeX( X );
             J = obj.FitModelObj.jacobean( C );
-        end
+        end % jacobean
         
         function [ Res,  ResC ] = calcResiduals( obj )
             %--------------------------------------------------------------
@@ -196,7 +206,7 @@ classdef regNonlinIGLS
             %--------------------------------------------------------------
             ResC = obj.FitModelObj.calcResiduals( obj.Xc, obj.Yc );
             Res = obj.decodeY( ResC );
-        end
+        end % calcResiduals
         
         function [ Yhat, YhatC ] = predictions( obj, X )
             %--------------------------------------------------------------
@@ -214,13 +224,13 @@ classdef regNonlinIGLS
             % YhatC --> Predictions in coded units
             %--------------------------------------------------------------
             if ( nargin < 2 )
-                X = obj.X;
+                X = obj.X_;
             end
             X = X(:);
             C = obj.codeX( X );
             YhatC = obj.FitModelObj.predictions( C );
             Yhat = obj.decodeY( YhatC );
-        end
+        end % predictions
         
         function SE = stdErrors( obj )
             %--------------------------------------------------------------
@@ -325,12 +335,12 @@ classdef regNonlinIGLS
         
         function Xc = get.Xc( obj )
             % Return coded x-data (training)
-            Xc = obj.codeX( obj.X );
+            Xc = obj.codeX( obj.X_ );
         end
         
         function Yc = get.Yc( obj )
             % Return coded y-data (training)
-            Yc = obj.codeY( obj.Y );
+            Yc = obj.codeY( obj.Y_ );
         end
         
         function T = get.Theta( obj )
