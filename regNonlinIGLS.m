@@ -29,6 +29,11 @@ classdef regNonlinIGLS
         W                   double                                          % Data weights for IGLS analysis
     end
     
+    properties ( Access = private )
+        X_                   double                                         % Regressor vector
+        Y_                   double                                         % Observed data vector
+    end % private properties
+    
     properties ( SetAccess = protected, Dependent = true )
         Lamda               double                                          % Regularisation coefficient
         DoF                 double                                          % Effective number of parameters
@@ -114,6 +119,11 @@ classdef regNonlinIGLS
             %--------------------------------------------------------------
             obj.W = ones( obj.N, 1);         
             %--------------------------------------------------------------
+            % Remove any aberrant data
+            %--------------------------------------------------------------
+            [ obj.X_, obj.Y_, obj.W ] = obj.FitModelObj.parseInputs( obj.X,...
+                                            obj.Y, obj.W );
+            %--------------------------------------------------------------
             % ROLS fit
             %--------------------------------------------------------------
             [ obj.X_, obj.Y_ ] = obj.FitModelObj.parseInputs( obj.X, obj.Y,...
@@ -189,7 +199,7 @@ classdef regNonlinIGLS
             X = X(:);
             C = obj.codeX( X );
             J = obj.FitModelObj.jacobean( C );
-        end
+        end % jacobean
         
         function [ Res,  ResC ] = calcResiduals( obj )
             %--------------------------------------------------------------
@@ -204,7 +214,7 @@ classdef regNonlinIGLS
             %--------------------------------------------------------------
             ResC = obj.FitModelObj.calcResiduals( obj.Xc, obj.Yc );
             Res = obj.decodeY( ResC );
-        end
+        end % calcResiduals
         
         function [ Yhat, YhatC ] = predictions( obj, X )
             %--------------------------------------------------------------
@@ -228,7 +238,7 @@ classdef regNonlinIGLS
             C = obj.codeX( X );
             YhatC = obj.FitModelObj.predictions( C );
             Yhat = obj.decodeY( YhatC );
-        end
+        end % predictions
         
         function SE = stdErrors( obj )
             %--------------------------------------------------------------
