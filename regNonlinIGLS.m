@@ -57,11 +57,13 @@ classdef regNonlinIGLS
             %                       Data --> Vector of input data
             %                       LB   --> Mapping a --> ac for coding
             %                       UB   --> Mapping b --> bc for coding
+            %                       Name --> (string) Name of channel
             % Y             --> Observed response structure. Must have
             %                   fields:
             %                       Data --> Vector of input data
             %                       LB   --> Mapping a --> ac for coding
             %                       UB   --> Mapping b --> bc for coding
+            %                       Name --> (string) Name of channel
             % fitModelObj   --> RegFit.fitModel object
             % covModelObj   --> RegFit.covModel object
             %--------------------------------------------------------------
@@ -160,7 +162,6 @@ classdef regNonlinIGLS
             end
             warning on;
         end
-        
                 
         function J = jacobean( obj, X )   
             %----------------------------------------------------------------
