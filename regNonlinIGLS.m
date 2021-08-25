@@ -314,7 +314,7 @@ classdef regNonlinIGLS
             end
             [ParameterVectors, Ave, StanDev] = obj.FitModelObj.bootStrapSamples( ...
                 obj.Xc, obj.Yc, obj.W, obj.NumCovPar, Nboot ); 
-        end
+        end % bootStrapSamples
     end % constructor and ordinary methods
     
     methods
