@@ -10,5 +10,6 @@ classdef fitModelType < int8
         HRM  (5)
         YRM  (6)
         MRM  (7)
+        PRM  (8)
     end
 end
