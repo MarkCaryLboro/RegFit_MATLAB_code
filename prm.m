@@ -17,19 +17,36 @@ classdef prm < RegFit.fitModel
     end        
     
     methods
-        function J = jacobean( obj, X, Beta )                                        
+        function obj = prm( ReEstObj )
+           %--------------------------------------------------------------
+            % class constructor
+            %
+            % obj = RegFit.prm( ReEstObj );
+            %
+            % Input Arguments:
+            %
+            % ReEstObj  --> RegFit.reEstLamda object. Implements
+            %               regularisation parameter re-estimation 
+            %               algorithm.
+            %--------------------------------------------------------------            
+            arguments
+                ReEstObj    (1,1)   
+            end
+            obj.ReEstObj = ReEstObj;
+        end % constructor
+        
+        function J = jacobean( obj, X )                                        
             %--------------------------------------------------------------
             % Return Jacobean matrix
             %
-            % J = obj.jacobean( X, Beta );
+            % J = obj.jacobean( X );
             %
             % Input Arguments:
             %
             % X       --> Dependent data
-            % Beta    --> Coefficient Vector {obj.Theta}. Assumed format:
-            %             [OCV, A, B].'
             %
             % Output Arguments:
+            %
             % J       --> Jacobean: [df_OCV, df_dA, df_dB]
             %--------------------------------------------------------------
             if ( nargin < 3 )
@@ -56,7 +73,7 @@ classdef prm < RegFit.fitModel
             X = X( : );                                                     % Vec operator (column vector)
         end % predictions
         
-        function V = startingValues( obj, X, Y )                            
+        function V = startingValues( obj, ~, ~ )                             
             %--------------------------------------------------------------
             % Estimate starting parameter coefficient values
             %
@@ -67,12 +84,19 @@ classdef prm < RegFit.fitModel
             % X     --> Input data
             % Y     --> Observed response data
             %--------------------------------------------------------------
-            X = X( : );
-            Y = Y( : );
-
+            V = nan( obj.NumFitCoeff, 1 );
         end % startingValues
         
         function B = basis( obj, X )
+            %--------------------------------------------------------------
+            % Return regressor matrix
+            %
+            % B = obj.basis( X );
+            %
+            % Input values:
+            %
+            % X     --> Input data
+            %--------------------------------------------------------------
         end % basis
         
         function obj = setCoefficientBnds( obj, LB, UB )

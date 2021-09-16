@@ -52,6 +52,7 @@ classdef hrm < RegFit.fitModel
             %             [a0, a1, a2, a3].'
             %
             % Output Arguments:
+            %
             % J       --> Jacobean: [df_da0, df_da1, df_da2, df_da3]
             %--------------------------------------------------------------
             if ( nargin < 3 )
