@@ -1,5 +1,8 @@
 classdef prm < RegFit.fitModel
-    % Pei et al relaxation model
+    % Relaxation model due to Pei, L., Wang, T., Lu, R. and Zhu, C., 2014. 
+    % Development of a voltage relaxation model for rapid open-circuit 
+    % voltage prediction in lithium-ion batteries. Journal of Power Sources, 
+    % 253, pp.412-418.
     
     properties 
         Theta       double                                                  % Model parameter vector
