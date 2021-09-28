@@ -73,8 +73,7 @@ classdef prm < RegFit.fitModel
             L = 0.5*sum( Res.^2./W ) + 0.5*Lam*(Beta.'*Beta);               % Regularised WLS cost function value
             G = obj.gradients( Beta, X, Y, W, Lam );                        % Analytical gradients 
         end % costFcn
-    
-        
+                 
         function obj = mleRegTemplate( obj, X, Y, W, NumCovPar, Options )
             %--------------------------------------------------------------
             % Regularised MLE for model
@@ -247,7 +246,6 @@ classdef prm < RegFit.fitModel
     end % protected methods
     
     methods ( Access = private )     
-        
         function PROBLEM = setUpMLE( obj, X0, X, Y, W, C, NumCovPar, Options )
             %--------------------------------------------------------------
             % Set up the MLE minimisation problem
@@ -278,35 +276,6 @@ classdef prm < RegFit.fitModel
             PROBLEM.options = Options;
             PROBLEM.solver = 'fmincon';
         end
-        
-        function H = fitsPlot( obj, Ax, NumPts)
-            %--------------------------------------------------------------
-            % Model fits to data
-            %
-            % H = obj.fitsPlot( Ax, NumPts );
-            %
-            % Input Arguments:
-            %
-            % Ax        --> Axes handle
-            % NumPts    --> Number of hi res points for fitted line {101}
-            %
-            % Output Arguments:
-            %
-            % H         --> Handle to line objects 
-            %--------------------------------------------------------------
-            if ( nargin < 5 ) || ( NumPts < obj.N )
-                NumPts = 101;
-            end
-            Xhi = linspace( min( obj.X ), max( obj.X ), NumPts ).';
-            Yhi = obj.predictions( Xhi );
-            H = plot( Ax, obj.X, obj.Y, 'bo', Xhi, Yhi, 'r-' );
-            H(1).MarkerFaceColor = 'blue';
-            H(2).LineWidth = 2.0;
-            grid on
-            xlabel( obj.Xname );
-            ylabel( obj.Yname );
-            title('Model Fits')
-        end                
     end % private methods
     
     methods ( Static = true )

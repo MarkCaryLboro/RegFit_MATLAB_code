@@ -216,7 +216,7 @@ classdef regNonlinIGLS
             Res = obj.decodeY( ResC );
         end % calcResiduals
         
-        function [ Yhat, YhatC ] = predictions( obj, X )
+        function [ Yhat, YhatC, X ] = predictions( obj, X )
             %--------------------------------------------------------------
             % Return model predictions
             %
@@ -234,9 +234,12 @@ classdef regNonlinIGLS
             if ( nargin < 2 )
                 X = obj.X_;
             end
-            C = obj.codeX( X );
-            YhatC = obj.FitModelObj.predictions( C );
-            Yhat = obj.decodeY( YhatC );
+            switch strcmpi( obj.ModelName, "PRM" )
+                case true
+                    [ Yhat, YhatC, X ] = obj.makePRMpredictions( X );
+                otherwise
+                    [ Yhat, YhatC ] = obj.makePredictions( X );
+            end
         end % predictions
         
         function SE = stdErrors( obj )
@@ -293,10 +296,14 @@ classdef regNonlinIGLS
             H{ 1 } = obj.fitsPlot( Ax{ 1 } );
             Ax{ 2 } = subplot( 2, 2, 2 );
             H{ 2 } = obj.weightedResPlot( Ax{ 2 } );
-            Ax{ 3 } = subplot( 2, 2, 3);
+            Ax{ 3 } = subplot( 2, 2, 3 );
             H{ 3 } = obj.normalPlot( Ax{ 3 } );
             Ax{ 4 } = subplot( 2, 2, 4 );
             H{ 4 } = obj.dataVsPredPlot( Ax{ 4 } );
+            for Q = 1:numel( Ax )
+                %----------------------------------------------------------
+                % Make the grid more visible and 
+            end
         end
         
         function [ParameterVectors, Ave, StanDev] = bootStrapSamples( obj, Nboot )
@@ -515,7 +522,15 @@ classdef regNonlinIGLS
             %
             % H         --> Handle to line objects 
             %--------------------------------------------------------------
-            Yhat = obj.predictions( obj.X );
+            Xd = obj.X;
+            if strcmpi( obj.ModelName, "PRM" )
+                %----------------------------------------------------------
+                % Augment X to ensure consistency of dimensions of
+                % predictions and data
+                %----------------------------------------------------------
+                Xd = [ Xd( 1 ) - 1/120; Xd ];
+            end
+            Yhat = obj.predictions( Xd );
             H = plot( Yhat, obj.Y, 'bo' );
             H.MarkerFaceColor = 'blue';
             V = axis( Ax );
@@ -602,7 +617,7 @@ classdef regNonlinIGLS
                 NumPts = 101;
             end
             Xhi = linspace( min( obj.X ), max( obj.X ), NumPts ).';
-            Yhi = obj.predictions( Xhi );
+            [Yhi, ~, Xhi] = obj.predictions( Xhi );
             H = plot( Ax, obj.X, obj.Y, 'bo', Xhi, Yhi, 'r-' );
             H(1).MarkerFaceColor = 'blue';
             H(2).LineWidth = 2.0;
@@ -610,7 +625,62 @@ classdef regNonlinIGLS
             xlabel( obj.Xname );
             ylabel( obj.Yname );
             title('Model Fits')
-        end        
+        end % fitsPlot
+        
+        function [ Yhat, YhatC ] = makePredictions( obj, X )
+            %--------------------------------------------------------------
+            % Prediction calculations for the non-PRM case
+            %            
+            % [ Yhat, YhatC ] = obj.makePredictions( X );
+            %
+            % Input Arguments:
+            %
+            % X     --> Regressor vector in natural units {obj.X}
+            %
+            % Output Arguments:
+            %
+            % Yhat  --> Predictions in natural units
+            % YhatC --> Predictions in coded units
+            %--------------------------------------------------------------
+            C = obj.codeX( X );
+            YhatC = obj.FitModelObj.predictions( C );
+            Yhat = obj.decodeY( YhatC );
+        end % makePredictions
+        
+        function [ Yhat, YhatC, X ] = makePRMpredictions( obj, X )
+            %--------------------------------------------------------------
+            % Prediction calculations for the PRM case
+            %            
+            % [ Yhat, YhatC ] = obj.makePRMpredictions( X );
+            %
+            % Input Arguments:
+            %
+            % X     --> Regressor vector in natural units {obj.X}
+            %
+            % Output Arguments:
+            %
+            % Yhat  --> Predictions in natural units
+            % YhatC --> Predictions in coded units
+            % X     --> Adjusted length due to prediction process
+            %-------------------------------------------------------------- 
+            if ( numel( X ) == 1 )
+                %----------------------------------------------------------
+                % Add an extra data point 30 seconds before if only one piece
+                % of data
+                %----------------------------------------------------------
+                X = [ X - 1/120; X ];
+            end
+            %--------------------------------------------------------------
+            % Interpolate the corresponding Y-data
+            %--------------------------------------------------------------
+            Ycode = interp1( obj.X, obj.Y, X, 'linear' );
+            Xcode = obj.codeX( X );
+            Ycode = obj.codeY( Ycode );
+            Xcode = [ Xcode, Ycode ];
+            YhatC = obj.FitModelObj.predictions( Xcode );
+            Yhat = obj.decodeY( YhatC );
+            X = X( 2:end );
+        end % makePRMpredictions
     end % private methods
 end
 
