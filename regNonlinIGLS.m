@@ -114,8 +114,17 @@ classdef regNonlinIGLS
             %--------------------------------------------------------------
             % Remove any aberrant data
             %--------------------------------------------------------------
-            [ obj.X_, obj.Y_, obj.W ] = obj.FitModelObj.parseInputs( obj.X,...
-                                            obj.Y, obj.W );
+            if strcmpi( "PRM", obj.ModelName )
+                %----------------------------------------------------------
+                % TO DO - Need to alter architecture to allow parseInputs
+                % method to be overloaded
+                %----------------------------------------------------------
+                [ obj.X_, obj.Y_, obj.W ] = obj.FitModelObj.parseInputs( obj.X,...
+                    obj.Y, obj.W, obj.FitModelObj.Tct );
+            else
+                [ obj.X_, obj.Y_, obj.W ] = obj.FitModelObj.parseInputs( obj.X,...
+                                                obj.Y, obj.W );
+            end
             %--------------------------------------------------------------
             % ROLS fit
             %--------------------------------------------------------------
@@ -170,7 +179,6 @@ classdef regNonlinIGLS
             end
             warning on;
         end
-        
                 
         function J = jacobean( obj, X )   
             %----------------------------------------------------------------
@@ -226,7 +234,6 @@ classdef regNonlinIGLS
             if ( nargin < 2 )
                 X = obj.X_;
             end
-            X = X(:);
             C = obj.codeX( X );
             YhatC = obj.FitModelObj.predictions( C );
             Yhat = obj.decodeY( YhatC );
@@ -335,7 +342,12 @@ classdef regNonlinIGLS
         
         function Xc = get.Xc( obj )
             % Return coded x-data (training)
-            Xc = obj.codeX( obj.X_ );
+            if strcmpi( "PRM", obj.ModelName )
+                Xc( :, 1 ) = obj.codeX( obj.X_( :,1 ) );
+                Xc( :, 2 ) = obj.codeY( obj.X_( :,2 ) );
+            else
+                Xc = obj.codeX( obj.X_ );
+            end
         end
         
         function Yc = get.Yc( obj )

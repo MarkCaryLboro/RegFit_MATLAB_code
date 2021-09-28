@@ -78,7 +78,7 @@ classdef fitModel
             %--------------------------------------------------------------
             L = 0.5*sum( Res.^2./W ) + 0.5*Lam*(Beta.'*Beta);               % Regularised WLS cost function value
             G = obj.gradients( Beta, X, Y, W, Lam );                        % Analytical gradients 
-        end
+        end % costFcn
         
         function obj = mleRegTemplate( obj, X, Y, W, NumCovPar, Options )
             %--------------------------------------------------------------
@@ -105,10 +105,6 @@ classdef fitModel
                 Options.SpecifyObjectiveGradient = true;
             end
             %--------------------------------------------------------------
-            % Parse the input data
-            %--------------------------------------------------------------
-            [X, Y, W] = obj.parseInputs( X, Y, W );
-            %--------------------------------------------------------------
             % Generate starting values if required
             %--------------------------------------------------------------
             if isempty( obj.Theta )
@@ -129,7 +125,7 @@ classdef fitModel
             obj.ReEstObj = obj.ReEstObj.calcDoF( W, J, Lam );               % Effective number of parameters
             obj.ReEstObj = obj.ReEstObj.getMeasure( Lam, Res,...            % Calculate the performance measure
                 W, J, NumCovPar );
-        end
+        end % mleRegTemplate
         
         function [ Res, Yhat] = calcResiduals( obj, X, Y, Beta )
             %--------------------------------------------------------------
@@ -153,7 +149,7 @@ classdef fitModel
             end
             Yhat = obj.predictions( X, Beta );                              % Calculate the predictions
             Res = Y - Yhat;                                                 % Form the residuals
-        end
+        end % calcresiduals
         
         function obj = updateLamda( obj, X, Y, W, NumCovPar, MaxIter )
             %--------------------------------------------------------------
@@ -186,7 +182,7 @@ classdef fitModel
             J = obj.jacobean( X );
             obj.ReEstObj = obj.ReEstObj.optimiseLamda( Lam, Res, W, J,...
                 NumCovPar, MaxIter );
-        end
+        end % updateLamda
         
         function SE = stdErrors( obj, X, W, Beta )
             %--------------------------------------------------------------
@@ -210,7 +206,7 @@ classdef fitModel
             [ ~, Z ] = obj.ReEstObj.calcSmatrix( obj.Lamda, W, J );
             H = ( Z.'*Z + obj.Lamda*eye( obj.NumFitCoeff ) )\eye( obj.NumFitCoeff );
             SE = sqrt( diag( H*( Z.'*Z )*H ) );
-        end
+        end % stdErrors
         
         function [ParameterVectors, Ave, StanDev] = bootStrapSamples( obj, X, Y, W, NumCovPar, N )
             %--------------------------------------------------------------
@@ -291,7 +287,7 @@ classdef fitModel
             % Generate histograms
             %--------------------------------------------------------------
             obj.histogram( ParameterVectors, 25 );
-        end
+        end % bootStrapSamples
     end % constructor and ordinary methods
     
     methods
