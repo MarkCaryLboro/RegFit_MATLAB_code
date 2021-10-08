@@ -35,18 +35,18 @@ classdef reEstLamda
             %               variance scale parameter)
             % J         --> Jacobean matrix 
             % NumCovPar --> Number of covariance model parameters
-            % MaxIter   --> Maximum number of iteration {25}. MaxIter is
+            % MaxIter   --> Maximum number of iteration {15}. MaxIter is
             %               clipped to 1 as a minimum.
             %--------------------------------------------------------------
             if ( nargin < 7 )
-                MaxIter = 25;                                               % Apply default
+                MaxIter = 15;                                               % Apply default
             elseif ( MaxIter < 1 )
                 MaxIter = 1;                                                % Apply lower clip
             end
             %--------------------------------------------------------------
             % Compute starting value
             %--------------------------------------------------------------
-            Lam = obj.initialLam( Res, W, J, NumCovPar );
+            Lam = obj.initialLam( Res, W, J, NumCovPar, [1e-14, 1], 7 );
             %--------------------------------------------------------------
             % Optimise the Lamda value
             %--------------------------------------------------------------
@@ -54,11 +54,11 @@ classdef reEstLamda
                 W, J, NumCovPar, MaxIter );
         end
         
-        function Lam0 = initialLam( obj, Res, W, J, NumCovPar, Int, Num )
+        function Lam0 = initialLam( obj, Res, W, J, NumCovPar, Int, Num, Flg )
             %--------------------------------------------------------------
             % Select best hyper-parameter in interval supplied.
             %
-            % Lam0 = obj.initialLam( Res, W, J, NumCovPar, Int, Num );
+            % Lam0 = obj.initialLam( Res, W, J, NumCovPar, Int, Num, Flg );
             %
             % Input Arguments:
             %
@@ -68,22 +68,30 @@ classdef reEstLamda
             % J         --> Jacobean matrix 
             % NumCovPar --> Number of covariance model parameters
             % Int       --> 1x2 vector of Lamda interval limits 
-            %               {[0.00001, 1]}
-            % Num       --> Number of samples for interval {6}
+            %               {[1e-12, 100]}
+            % Num       --> Number of samples for interval {13}
+            % Flg       --> Set to true to generate convergence plot
+            %               {false}
             %--------------------------------------------------------------
-            if ( nargin < 6 )
-                Int = [0.000001, 1];
+            if ( nargin < 6 ) || isempty( Int )
+                Int = [1e-14, 1];
             end
-            if ( nargin < 7 )
+            if ( nargin < 7 ) || isempty( Num )
                 Num = 7;
+            end
+            if ( nargin < 8 ) || isempty( Flg ) || ~Flg
+                Flg = false;
             end
             Int = logspace( log10( min( Int ) ), log10( max( Int ) ), Num );
             DhDlam =  zeros( 1, Num );
+            Flam = zeros( 1, Num );
             Ok = false( 1, Num );
             for Q = 1:Num
                 %----------------------------------------------------------
                 % Calculate absolute first derivative of h(lamda)
                 %----------------------------------------------------------
+                Flam( Q ) = obj.calcNewLam( W, J, Res, Int( Q ),...
+                                        NumCovPar );
                 DhDlam( Q ) = abs( obj.firstDerivative( W, J,...
                     Res, Int( Q ), NumCovPar ) );
                 %----------------------------------------------------------
@@ -94,16 +102,33 @@ classdef reEstLamda
                 end
                 Ok( Q ) = ~isnan( DhDlam( Q ) );
                 Ok( Q ) = Ok( Q ) & ( DhDlam( Q ) < 1 ) &...                          
-                    ( DhDlam( Q ) >= min( Int ) ) &...
-                    ( DhDlam( Q ) <= max( Int ) );
+                    ( Flam( Q ) >= min( Int ) ) &...
+                    ( Flam( Q ) <= max( Int ) );
             end
-            [ ~, Idx ] = min( DhDlam );
-            Lam0 = Int( Idx );
-            if ~Ok( Idx )
+            %--------------------------------------------------------------
+            % Determine if intersection is present
+            %--------------------------------------------------------------
+            IntOk = obj.isIntersection( Int, Flam );
+            %--------------------------------------------------------------
+            % Generate convergence plots if required
+            %--------------------------------------------------------------
+            if Flg
+                obj.convergencePlot( Int, Flam, DhDlam );
+            end
+            if ~IntOk
                 %----------------------------------------------------------
                 % Warn convergence is not guaranteed
                 %----------------------------------------------------------
+                Lam0 = 0.001;
                 warning( 'Initial Value for Lambda = %6.5e Value Not Guaranteed to Converge', Lam0 );
+            else
+                %----------------------------------------------------------
+                % Return best initial lamda
+                %----------------------------------------------------------
+                DhDlam = DhDlam( Ok );
+                Int = Int( Ok );
+                [ ~, Idx ] = min( DhDlam );
+                Lam0 = Int( Idx );
             end
         end
         
@@ -282,6 +307,24 @@ classdef reEstLamda
     end % get/set methods
     
     methods ( Static = true )
+        function Ok = isIntersection( X, F )
+            %--------------------------------------------------------------
+            % Determine if the condition F(x) = x is satisfied in an
+            % interval
+            %
+            % Ok = isIntersection( X, F )
+            %
+            % Input Arguments:
+            %
+            % X     --> (1xN) vector of x-samples defining the interval
+            % F     --> (1xN) vector of corresponding function values
+            %--------------------------------------------------------------
+            R = X( : ) - F( : );                                            % Calculate residual
+            R = sign( R );                                                  % Sign of residual
+            R = diff( R );
+            Ok = any( abs( R ) == 2 ); 
+        end
+
         function A = calcAmatrix( Lam, Z )
             %--------------------------------------------------------------
             % Calculate the A Matrix
@@ -310,6 +353,38 @@ classdef reEstLamda
             %--------------------------------------------------------------
             C = sqrt( W );                                                  % Cholesky factor for weight matrix
             Z = diag(1./C)*J;                                               
+        end
+        
+        function convergencePlot( Int, Flam, DhDlam )
+            %--------------------------------------------------------------
+            % Create convergence figure for the fixed-point iteration
+            % algorithm: x = f( x ).
+            %
+            % obj.convergencePlot( Int, Flam, DhDlam );
+            %
+            % Input Arguments:
+            %
+            % Int       --> Initial trial Lambda values
+            % Flam      --> Corresponding function values
+            % DhDlam    --> Corresponding absolute first derivatives
+            %--------------------------------------------------------------
+            figure;
+            yyaxis left;
+            Lax = gca;
+            Lax.NextPlot = "add";
+            plot( Int, Flam, 'bo-', 'linewidth', 2, 'markerfacecolor', 'blue' );
+            plot( Int, Int, 'b:', 'linewidth', 2 );
+            Lax.XScale = 'log';
+            Lax.YScale = 'log';
+            xlabel('\lambda', 'FontSize', 16 );
+            ylabel('f(\lambda)','FontSize',16);
+            yyaxis right;
+            Rax = gca;
+            plot( Int, DhDlam, 'rs-', 'linewidth', 2, 'markerfacecolor', 'red' );
+            Rax.XScale = 'log';
+            Rax.YScale = 'log';
+            ylabel('df(\lambda)/(\lambda)','FontSize',16);
+            grid on;
         end
     end % static methods
 end

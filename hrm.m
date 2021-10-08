@@ -101,8 +101,8 @@ classdef hrm < RegFit.fitModel
             %--------------------------------------------------------------
             X = X( : );
             Y = Y( : );
-            A0 = 1.01 * max( Y );
-            A1 = A0;
+            A0 = 1.01*max(Y);
+            A1 = 1.01*max(Y);
             G = log( 1 - exp( ( Y - A0 )/ A1 ) );
             Z = [ ones( size( X ) ) X ];
             Q = Z \ G;
@@ -138,6 +138,22 @@ classdef hrm < RegFit.fitModel
     end % set/get methods
     
     methods ( Static = true )
+        function [X, W ] = processInputs( X, W )
+            %--------------------------------------------------------------
+            % Eliminate necessary aberrant points and corresponding weights
+            %
+            % [X, W ] = obj.processInputs( X, W );
+            %
+            % Input Arguments:
+            %
+            % X     --> Regressor vector
+            % W     --> Weight vector
+            %--------------------------------------------------------------
+            P = ( X <= 0 );
+            X = X( ~P );
+            W = W( ~P );
+        end        
+        
         function [X, Y, W] = parseInputs( X, Y, W )
             %--------------------------------------------------------------
             % Remove negative data

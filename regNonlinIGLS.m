@@ -25,6 +25,7 @@ classdef regNonlinIGLS
     end
     
     properties ( Access = private )
+        N_                   double                                         % Number of points used for fitting
         X_                   double                                         % Regressor vector
         Y_                   double                                         % Observed data vector
     end % private properties
@@ -89,6 +90,65 @@ classdef regNonlinIGLS
             obj.FitModelObj = fitModelObj;
             obj.CovModelObj = covModelObj;
         end
+        
+        function C = codeData( obj, Data, Type )
+            %--------------------------------------------------------------
+            % Code either X- or Y-data.
+            %
+            % C = obj.codeData( Data, Type );
+            %
+            % Input Arguments:
+            %
+            % Data  --> (double) Vector of data points in natural units
+            % Type  --> (string) Either {"X"} for X-data or "Y" for Y-Data
+            %--------------------------------------------------------------
+            arguments
+                obj     (1,1)
+                Data       (:,1)   double        { mustBeNonempty( Data ) }
+                Type    (1,1)   string  = "X"
+            end
+            if strcmpi( Type, "x" ) 
+                Type = "X";
+            else
+                Type = "Y";
+            end
+            switch Type
+                case "X"
+                    C = obj.codeX( Data );
+                otherwise
+                    C = obj.codeY( Data );
+            end
+        end % codeData
+        
+        function Data = decodeData( obj, C, Type )
+            %--------------------------------------------------------------
+            % Decode either coded X- or Y-data.
+            %
+            % Data = obj.decodeData( C, Type );
+            %
+            % Input Arguments:
+            %
+            % C     --> (double) Vector of data points in coded units
+            % Type  --> (string) Either {"X"} for X-data or "Y" for Y-Data
+            %--------------------------------------------------------------
+            arguments
+                obj     (1,1)
+                C       (:,1)   double        { mustBeNonempty( C ) }
+                Type    (1,1)   string  = "X"
+            end
+            if strcmpi( Type, "x" ) 
+                Type = "X";
+            else
+                Type = "Y";
+            end
+            switch Type
+                case "X"
+                    Data = obj.decodeX( C );
+                otherwise
+                    Data = obj.decodeY( C );
+            end            
+        end % decodeData
+        
         
         function obj = regOLSestimates( obj, Options )
             %--------------------------------------------------------------
@@ -177,6 +237,7 @@ classdef regNonlinIGLS
                 ConvFlg = 100*( norm(obj.Theta - ThetaLast )/norm( obj.Theta ) ) <= 0.0001;
                 Stopflg = ConvFlg | ( Iter >= MaxIter );
             end
+            fprintf('\n\n');
             warning on;
         end
                 
@@ -213,7 +274,9 @@ classdef regNonlinIGLS
             % ResC  --> Residuals in coded units
             %--------------------------------------------------------------
             ResC = obj.FitModelObj.calcResiduals( obj.Xc, obj.Yc );
-            Res = obj.decodeY( ResC );
+            [A, B, Ac, Bc] = obj.codeLimitsY();
+            M = ( B - A )/( Bc - Ac );
+            Res = M * ResC ;
         end % calcResiduals
         
         function [ Yhat, YhatC, X ] = predictions( obj, X )
@@ -273,7 +336,7 @@ classdef regNonlinIGLS
             if ( nargin < 2 ) || isempty( P )
                 P = 0.05;
             end
-            DF = obj.N - obj.TotalNumPar;
+            DF = obj.N_ - obj.TotalNumPar;
             SE = obj.Sigma*obj.stdErrors();
             T = abs(tinv( 0.5*P, DF ));                                     % T-statistic
             LCI = obj.Theta - SE*T;                                         % Lower C.I.
@@ -385,6 +448,11 @@ classdef regNonlinIGLS
         function N = get.N( obj )
             % Return number of data points
             N = numel( obj.X );
+        end
+        
+        function N = get.N_( obj )
+            % Return number of data points used in fitting
+            N = numel( obj.X_( :,1 ) );
         end
         
         function D = get.Delta( obj )
@@ -506,7 +574,6 @@ classdef regNonlinIGLS
             Ac = obj.YLB( 2 );
             Bc = obj.YUB( 2 );
         end
-        
         
         function H = dataVsPredPlot( obj, Ax )
             %--------------------------------------------------------------
