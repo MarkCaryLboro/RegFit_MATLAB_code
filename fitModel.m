@@ -104,6 +104,7 @@ classdef fitModel
                 Options.Display = 'Iter';
                 Options.SpecifyObjectiveGradient = true;
             end
+%             Options.Display = 'Iter';
             %--------------------------------------------------------------
             % Generate starting values if required
             %--------------------------------------------------------------
@@ -120,7 +121,7 @@ classdef fitModel
             %--------------------------------------------------------------
             % Set up and execute regularised WLS PROBLEM
             %--------------------------------------------------------------
-            C = obj.mleConstraints( X0 );
+            C = obj.mleConstraints( X0, X, Y );
             PROBLEM = obj.setUpMLE( X0, X, Y, W, C, NumCovPar, Options );
             obj.Theta = fmincon( PROBLEM );
             [ ~, ~, Lam] = feval( PROBLEM.objective, obj.Theta);
@@ -316,7 +317,7 @@ classdef fitModel
     end % get/set methods
     
     methods ( Access = protected )     
-        function C = mleConstraints( obj, Beta )                            %#ok<INUSD>
+        function C = mleConstraints( obj, Beta, ~, ~ )                         %#ok<INUSD>
             %--------------------------------------------------------------
             % Provide custom constraints for optimisation. See help for
             % fmincon for definitions.

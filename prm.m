@@ -325,7 +325,24 @@ classdef prm < RegFit.fitModel
             Y = Y( 2:end );
             W = W( 2:end );
         end % parseInputs
-        
+
+        function [X, W ] = processInputs( X, W )
+            %--------------------------------------------------------------
+            % Eliminate necessary aberrant points and corresponding weights
+            %
+            % [X, W ] = obj.processInputs( X, W );
+            %
+            % Input Arguments:
+            %
+            % X     --> Regressor vector
+            % W     --> Weight vector
+            % TcT   --> Threshold time
+            %--------------------------------------------------------------
+            P = any( X <= 0, 2 );
+            X = X( ~P, : );
+            W = W( ~P( 2:end ) );
+        end        
+                
         function [OCV, A, B] = assignPars( Beta )
             %--------------------------------------------------------------
             % Assign the parameter vector contents

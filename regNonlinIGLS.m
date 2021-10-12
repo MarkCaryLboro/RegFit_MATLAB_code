@@ -149,7 +149,6 @@ classdef regNonlinIGLS
             end            
         end % decodeData
         
-        
         function obj = regOLSestimates( obj, Options )
             %--------------------------------------------------------------
             % Regularised ordinary least squares fit

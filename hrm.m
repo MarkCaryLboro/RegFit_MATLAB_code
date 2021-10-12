@@ -137,6 +137,60 @@ classdef hrm < RegFit.fitModel
         end
     end % set/get methods
     
+    methods ( Access = protected )
+        function C = mleConstraints( obj, Beta, varargin )                  %#ok<INUSL>
+            %--------------------------------------------------------------
+            % Provide custom constraints for optimisation. See help for
+            % fmincon for definitions.
+            %
+            % Input Arguments:
+            %
+            % Beta  --> Coefficient vector. Decision variables for
+            %           optimisation of the cost function for RIGLS
+            %
+            % Output Arguments:
+            %
+            % C     --> Structure of constraints with fields:
+            %           Aineq       --> Linear inequality constraint
+            %                           coefficient matrix.
+            %           bineq       --> Linear inequality constraints bound
+            %                           matrix.
+            %           Aeq         --> Linear equality constraint
+            %                           coefficient matrix.
+            %           beq         --> Linear equality constraints bound
+            %                           matrix.
+            %           nonlcon     --> Nonlinear constraints function
+            %--------------------------------------------------------------
+            C.Aineq = [];
+            C.bineq = [];
+            C.Aeq = [];
+            C.beq = [];
+            C.nonlcon = @( Beta )obj.nonlincon( Beta, varargin{:} );
+        end
+        
+        function [ C, Ceq ] = nonlincon( obj, Beta, ~, Y )
+            %--------------------------------------------------------------
+            % Overloaded method for nonlinear constraints
+            %
+            % [ C, Ceq ] = obj.nonlincon( Beta, X );
+            %
+            % Input Arguments:
+            %
+            % Beta  --> Fit parameters
+            % X     --> Regressor data vector
+            % Y     --> Response data vector
+            %
+            % Output Arguments:
+            %
+            % C     --> Inequality contraints
+            % Ceq   --> Equality constraints
+            %--------------------------------------------------------------
+            Ceq = [];
+            Ao = obj.assignPars( Beta );
+            C = max( Y ) - Ao;
+        end
+    end % protected methods    
+    
     methods ( Static = true )
         function [X, W ] = processInputs( X, W )
             %--------------------------------------------------------------

@@ -128,6 +128,22 @@ classdef mrm < RegFit.fitModel
     end % constructor and ordinary methods
     
     methods ( Static = true )
+        function [X, W ] = processInputs( X, W )
+            %--------------------------------------------------------------
+            % Eliminate necessary aberrant points and corresponding weights
+            %
+            % [X, W ] = obj.processInputs( X, W );
+            %
+            % Input Arguments:
+            %
+            % X     --> Regressor vector
+            % W     --> Weight vector
+            %--------------------------------------------------------------
+            P = ( X <= 0 );
+            X = X( ~P );
+            W = W( ~P );
+        end       
+        
         function [X, Y, W] = parseInputs( X, Y, W )
             %--------------------------------------------------------------
             % Remove negative data

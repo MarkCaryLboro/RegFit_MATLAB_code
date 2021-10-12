@@ -14,7 +14,7 @@ classdef yrm < RegFit.fitModel
     end
     
     properties ( SetAccess = protected )
-        ParNames    string      = [ "k_1", "k_2", "k_3", "k_4", "V_0" ]     % Parameter Names
+        ParNames    string      = [ "V_0" ,"k_1", "k_2", "k_3", "k_4" ]     % Parameter Names
     end    
     
     properties ( Constant = true )
@@ -106,14 +106,14 @@ classdef yrm < RegFit.fitModel
             %--------------------------------------------------------------
             X = X( : );
             Y = Y( : );
-            V0 = 0.99 * min( Y );
-            K1 = 0;
-            K2 = 1;
-            G = log( ( V0 - Y ) ./ log( X ) );
+            V0 = 1.1 * max( Y );
+            K3 = 0;
+            K4 = -0.1;
+            G = log( V0 - Y );
             Z = [ ones( size( X ) ) log( X ) ];
             Q = Z \ G;
-            K3 = exp( Q( 1 ) );
-            K4 = Q( 2 );
+            K1 = exp( Q( 1 ) );
+            K2 = Q( 2 );
             V = real( [ V0, K1, K2, K3, K4 ].' );
         end % startingValues
         
@@ -143,7 +143,77 @@ classdef yrm < RegFit.fitModel
         end
     end % set/get methods    
     
+    methods ( Access = protected )
+        function C = mleConstraints( obj, Beta, varargin )                  %#ok<INUSL>
+            %--------------------------------------------------------------
+            % Provide custom constraints for optimisation. See help for
+            % fmincon for definitions.
+            %
+            % Input Arguments:
+            %
+            % Beta  --> Coefficient vector. Decision variables for
+            %           optimisation of the cost function for RIGLS
+            %
+            % Output Arguments:
+            %
+            % C     --> Structure of constraints with fields:
+            %           Aineq       --> Linear inequality constraint
+            %                           coefficient matrix.
+            %           bineq       --> Linear inequality constraints bound
+            %                           matrix.
+            %           Aeq         --> Linear equality constraint
+            %                           coefficient matrix.
+            %           beq         --> Linear equality constraints bound
+            %                           matrix.
+            %           nonlcon     --> Nonlinear constraints function
+            %--------------------------------------------------------------
+            C.Aineq = [];
+            C.bineq = [];
+            C.Aeq = [];
+            C.beq = [];
+            C.nonlcon = @( Beta )obj.nonlincon( Beta, varargin{:} );
+        end
+        
+        function [ C, Ceq ] = nonlincon( obj, Beta, ~, Y )
+            %--------------------------------------------------------------
+            % Overloaded method for nonlinear constraints
+            %
+            % [ C, Ceq ] = obj.nonlincon( Beta, X );
+            %
+            % Input Arguments:
+            %
+            % Beta  --> Fit parameters
+            % X     --> Regressor data vector
+            % Y     --> Response data vector
+            %
+            % Output Arguments:
+            %
+            % C     --> Inequality contraints
+            % Ceq   --> Equality constraints
+            %--------------------------------------------------------------
+            Ceq = [];
+            Vo = obj.assignPars( Beta );
+            C = max( Y ) - Vo;
+        end
+    end % protected methods
+    
     methods ( Static = true )
+        function [X, W ] = processInputs( X, W )
+            %--------------------------------------------------------------
+            % Eliminate necessary aberrant points and corresponding weights
+            %
+            % [X, W ] = obj.processInputs( X, W );
+            %
+            % Input Arguments:
+            %
+            % X     --> Regressor vector
+            % W     --> Weight vector
+            %--------------------------------------------------------------
+            P = ( X <= 0 );
+            X = X( ~P );
+            W = W( ~P );
+        end        
+        
         function [X, Y, W] = parseInputs( X, Y, W )
             %--------------------------------------------------------------
             % Remove negative data
