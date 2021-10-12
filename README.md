@@ -51,3 +51,6 @@ Changes to fixed-point iteration scheme implemented for hyper-parameter
 optimisation. Intersection is now detected within the interval & starting 
 values are based on this plus minimum absolute gradient < 1
 
+Updated RegFit.zip file to reflect current changes
+
+
