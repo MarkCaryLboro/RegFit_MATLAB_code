@@ -118,7 +118,7 @@ classdef mlm < RegFit.fitModel
             %--------------------------------------------------------------
             % Estimate starting parameter coefficient values
             %
-            % obj = obj.startingValues( X, Y );
+            % V = obj.startingValues( X, Y );
             %
             % Input values:
             %
