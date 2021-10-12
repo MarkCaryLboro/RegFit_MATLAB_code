@@ -18,6 +18,11 @@ classdef regNonlinIGLS
         Created = datetime( 'now' )                                         % Date and time object was created
     end
     
+    properties ( Access = private )
+        X_                  double                                          % Parsed regressor vector
+        Y_                  double                                          % Parsed observed data vector
+    end % private properties
+    
     properties ( SetAccess = protected )
         FitModelObj         { mustBeFitModelObj( FitModelObj ) }            % Regularised fit model object
         CovModelObj         { mustBeCovModelObj( CovModelObj ) }            % Covariance model context object
@@ -63,11 +68,13 @@ classdef regNonlinIGLS
             %                       Data --> Vector of input data
             %                       LB   --> Mapping a --> ac for coding
             %                       UB   --> Mapping b --> bc for coding
+            %                       Name --> (string) Name of channel
             % Y             --> Observed response structure. Must have
             %                   fields:
             %                       Data --> Vector of input data
             %                       LB   --> Mapping a --> ac for coding
             %                       UB   --> Mapping b --> bc for coding
+            %                       Name --> (string) Name of channel
             % fitModelObj   --> RegFit.fitModel object
             % covModelObj   --> RegFit.covModel object
             %--------------------------------------------------------------
@@ -187,6 +194,8 @@ classdef regNonlinIGLS
             %--------------------------------------------------------------
             % ROLS fit
             %--------------------------------------------------------------
+            [ obj.X_, obj.Y_ ] = obj.FitModelObj.parseInputs( obj.X, obj.Y,...
+                                                            obj.W );
             obj.FitModelObj = obj.FitModelObj.mleRegTemplate( obj.Xc,...
                 obj.Yc, obj.W, obj.NumCovPar, Options );
         end
