@@ -47,3 +47,7 @@ mrm.m       Meng et al relaxation model
 prm.m       Pei et al relaxation model
 yrm.m       Yang et al relaxation model
 
+Changes to fixed-point iteration scheme implemented for hyper-parameter
+optimisation. Intersection is now detected within the interval & starting 
+values are based on this plus minimum absolute gradient < 1
+
