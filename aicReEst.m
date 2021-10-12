@@ -64,7 +64,7 @@ classdef aicReEst < RegFit.reEstLamda
                 %----------------------------------------------------------
                 % Clip Lamda to effectively zero
                 %----------------------------------------------------------
-                Lam = max([ sqrt( eps ), Lam]);
+                Lam = max([ 0, Lam ]);
                 %----------------------------------------------------------
                 % Apply convergence test
                 %----------------------------------------------------------
@@ -73,7 +73,7 @@ classdef aicReEst < RegFit.reEstLamda
             end
         end
         
-        function NewLam = calcNewLam( obj, W, J, Res, Lam, NumCovPar )
+        function NewLam = calcNewLam( obj, W, J, Res, Lam, ~ )
             %--------------------------------------------------------------
             % Calculate new value of hyper-parameter
             %
@@ -93,12 +93,12 @@ classdef aicReEst < RegFit.reEstLamda
             Q = Res./C;                                                     % Weighted residual vector
             [S, Z, ~, IA] = obj.calcSmatrix( Lam, W, J );                   % Return relevant matrices
             Sigma2 = Q.'*( eye( N ) - S )^2*Q/N;                            % Variance scale parameter
-            G = trace( S ) + NumCovPar;                                     % Total number of parameters
-            M = 2*( 2*G + 1 )./(N - G - 1) - ...
-                2*G*( G + 1 )./(N - G - 1)^2;
+            G = trace( S );
+            M = (2*G*(G + 1))/(G - N + 1)^2 - (2*(G + 1))/(G - N + 1) -...
+                (2*G)/(G - N + 1);
             DLdLam = Q.'*Z*(IA^3)*Z.'*Q;                                    % Derivative of the likelihood with respect to Lamda
             DdoFdLam = trace( IA - Lam*IA^2 );                              % Derivative of DoF with respect to Lamda
-            NewLam = Sigma2*M*DdoFdLam./2./N./DLdLam;                       % Updated hyper-parameter estimate
+            NewLam = Sigma2*M*DdoFdLam./DLdLam;                             % Updated hyper-parameter estimate
         end        
     end % protected methods
     

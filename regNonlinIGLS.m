@@ -30,6 +30,7 @@ classdef regNonlinIGLS
     end
     
     properties ( Access = private )
+        N_                   double                                         % Number of points used for fitting
         X_                   double                                         % Regressor vector
         Y_                   double                                         % Observed data vector
     end % private properties
@@ -97,6 +98,64 @@ classdef regNonlinIGLS
             obj.CovModelObj = covModelObj;
         end
         
+        function C = codeData( obj, Data, Type )
+            %--------------------------------------------------------------
+            % Code either X- or Y-data.
+            %
+            % C = obj.codeData( Data, Type );
+            %
+            % Input Arguments:
+            %
+            % Data  --> (double) Vector of data points in natural units
+            % Type  --> (string) Either {"X"} for X-data or "Y" for Y-Data
+            %--------------------------------------------------------------
+            arguments
+                obj     (1,1)
+                Data       (:,1)   double        { mustBeNonempty( Data ) }
+                Type    (1,1)   string  = "X"
+            end
+            if strcmpi( Type, "x" ) 
+                Type = "X";
+            else
+                Type = "Y";
+            end
+            switch Type
+                case "X"
+                    C = obj.codeX( Data );
+                otherwise
+                    C = obj.codeY( Data );
+            end
+        end % codeData
+        
+        function Data = decodeData( obj, C, Type )
+            %--------------------------------------------------------------
+            % Decode either coded X- or Y-data.
+            %
+            % Data = obj.decodeData( C, Type );
+            %
+            % Input Arguments:
+            %
+            % C     --> (double) Vector of data points in coded units
+            % Type  --> (string) Either {"X"} for X-data or "Y" for Y-Data
+            %--------------------------------------------------------------
+            arguments
+                obj     (1,1)
+                C       (:,1)   double        { mustBeNonempty( C ) }
+                Type    (1,1)   string  = "X"
+            end
+            if strcmpi( Type, "x" ) 
+                Type = "X";
+            else
+                Type = "Y";
+            end
+            switch Type
+                case "X"
+                    Data = obj.decodeX( C );
+                otherwise
+                    Data = obj.decodeY( C );
+            end            
+        end % decodeData
+        
         function obj = regOLSestimates( obj, Options )
             %--------------------------------------------------------------
             % Regularised ordinary least squares fit
@@ -121,8 +180,17 @@ classdef regNonlinIGLS
             %--------------------------------------------------------------
             % Remove any aberrant data
             %--------------------------------------------------------------
-            [ obj.X_, obj.Y_, obj.W ] = obj.FitModelObj.parseInputs( obj.X,...
-                                            obj.Y, obj.W );
+            if strcmpi( "PRM", obj.ModelName )
+                %----------------------------------------------------------
+                % TO DO - Need to alter architecture to allow parseInputs
+                % method to be overloaded
+                %----------------------------------------------------------
+                [ obj.X_, obj.Y_, obj.W ] = obj.FitModelObj.parseInputs( obj.X,...
+                    obj.Y, obj.W, obj.FitModelObj.Tct );
+            else
+                [ obj.X_, obj.Y_, obj.W ] = obj.FitModelObj.parseInputs( obj.X,...
+                                                obj.Y, obj.W );
+            end
             %--------------------------------------------------------------
             % ROLS fit
             %--------------------------------------------------------------
@@ -177,6 +245,7 @@ classdef regNonlinIGLS
                 ConvFlg = 100*( norm(obj.Theta - ThetaLast )/norm( obj.Theta ) ) <= 0.0001;
                 Stopflg = ConvFlg | ( Iter >= MaxIter );
             end
+            fprintf('\n\n');
             warning on;
         end
                 
@@ -213,10 +282,12 @@ classdef regNonlinIGLS
             % ResC  --> Residuals in coded units
             %--------------------------------------------------------------
             ResC = obj.FitModelObj.calcResiduals( obj.Xc, obj.Yc );
-            Res = obj.decodeY( ResC );
+            [A, B, Ac, Bc] = obj.codeLimitsY();
+            M = ( B - A )/( Bc - Ac );
+            Res = M * ResC ;
         end % calcResiduals
         
-        function [ Yhat, YhatC ] = predictions( obj, X )
+        function [ Yhat, YhatC, X ] = predictions( obj, X )
             %--------------------------------------------------------------
             % Return model predictions
             %
@@ -234,10 +305,12 @@ classdef regNonlinIGLS
             if ( nargin < 2 )
                 X = obj.X_;
             end
-            X = X(:);
-            C = obj.codeX( X );
-            YhatC = obj.FitModelObj.predictions( C );
-            Yhat = obj.decodeY( YhatC );
+            switch strcmpi( obj.ModelName, "PRM" )
+                case true
+                    [ Yhat, YhatC, X ] = obj.makePRMpredictions( X );
+                otherwise
+                    [ Yhat, YhatC ] = obj.makePredictions( X );
+            end
         end % predictions
         
         function SE = stdErrors( obj )
@@ -271,7 +344,7 @@ classdef regNonlinIGLS
             if ( nargin < 2 ) || isempty( P )
                 P = 0.05;
             end
-            DF = obj.N - obj.TotalNumPar;
+            DF = obj.N_ - obj.TotalNumPar;
             SE = obj.Sigma*obj.stdErrors();
             T = abs(tinv( 0.5*P, DF ));                                     % T-statistic
             LCI = obj.Theta - SE*T;                                         % Lower C.I.
@@ -294,10 +367,14 @@ classdef regNonlinIGLS
             H{ 1 } = obj.fitsPlot( Ax{ 1 } );
             Ax{ 2 } = subplot( 2, 2, 2 );
             H{ 2 } = obj.weightedResPlot( Ax{ 2 } );
-            Ax{ 3 } = subplot( 2, 2, 3);
+            Ax{ 3 } = subplot( 2, 2, 3 );
             H{ 3 } = obj.normalPlot( Ax{ 3 } );
             Ax{ 4 } = subplot( 2, 2, 4 );
             H{ 4 } = obj.dataVsPredPlot( Ax{ 4 } );
+            for Q = 1:numel( Ax )
+                %----------------------------------------------------------
+                % Make the grid more visible and 
+            end
         end
         
         function [ParameterVectors, Ave, StanDev] = bootStrapSamples( obj, Nboot )
@@ -322,7 +399,7 @@ classdef regNonlinIGLS
             end
             [ParameterVectors, Ave, StanDev] = obj.FitModelObj.bootStrapSamples( ...
                 obj.Xc, obj.Yc, obj.W, obj.NumCovPar, Nboot ); 
-        end
+        end % bootStrapSamples
     end % constructor and ordinary methods
     
     methods
@@ -343,7 +420,12 @@ classdef regNonlinIGLS
         
         function Xc = get.Xc( obj )
             % Return coded x-data (training)
-            Xc = obj.codeX( obj.X_ );
+            if strcmpi( "PRM", obj.ModelName )
+                Xc( :, 1 ) = obj.codeX( obj.X_( :,1 ) );
+                Xc( :, 2 ) = obj.codeY( obj.X_( :,2 ) );
+            else
+                Xc = obj.codeX( obj.X_ );
+            end
         end
         
         function Yc = get.Yc( obj )
@@ -374,6 +456,11 @@ classdef regNonlinIGLS
         function N = get.N( obj )
             % Return number of data points
             N = numel( obj.X );
+        end
+        
+        function N = get.N_( obj )
+            % Return number of data points used in fitting
+            N = numel( obj.X_( :,1 ) );
         end
         
         function D = get.Delta( obj )
@@ -496,7 +583,6 @@ classdef regNonlinIGLS
             Bc = obj.YUB( 2 );
         end
         
-        
         function H = dataVsPredPlot( obj, Ax )
             %--------------------------------------------------------------
             % Data versus predictions plot diagnostic
@@ -511,7 +597,15 @@ classdef regNonlinIGLS
             %
             % H         --> Handle to line objects 
             %--------------------------------------------------------------
-            Yhat = obj.predictions( obj.X );
+            Xd = obj.X;
+            if strcmpi( obj.ModelName, "PRM" )
+                %----------------------------------------------------------
+                % Augment X to ensure consistency of dimensions of
+                % predictions and data
+                %----------------------------------------------------------
+                Xd = [ Xd( 1 ) - 1/120; Xd ];
+            end
+            Yhat = obj.predictions( Xd );
             H = plot( Yhat, obj.Y, 'bo' );
             H.MarkerFaceColor = 'blue';
             V = axis( Ax );
@@ -597,8 +691,8 @@ classdef regNonlinIGLS
             if ( nargin < 5 ) || ( NumPts < obj.N )
                 NumPts = 101;
             end
-            Xhi = linspace( min( obj.X_ ), max( obj.X_ ), NumPts ).';
-            Yhi = obj.predictions( Xhi );
+            Xhi = linspace( min( obj.X ), max( obj.X ), NumPts ).';
+            [Yhi, ~, Xhi] = obj.predictions( Xhi );
             H = plot( Ax, obj.X, obj.Y, 'bo', Xhi, Yhi, 'r-' );
             H(1).MarkerFaceColor = 'blue';
             H(2).LineWidth = 2.0;
@@ -606,7 +700,62 @@ classdef regNonlinIGLS
             xlabel( obj.Xname );
             ylabel( obj.Yname );
             title('Model Fits')
-        end        
+        end % fitsPlot
+        
+        function [ Yhat, YhatC ] = makePredictions( obj, X )
+            %--------------------------------------------------------------
+            % Prediction calculations for the non-PRM case
+            %            
+            % [ Yhat, YhatC ] = obj.makePredictions( X );
+            %
+            % Input Arguments:
+            %
+            % X     --> Regressor vector in natural units {obj.X}
+            %
+            % Output Arguments:
+            %
+            % Yhat  --> Predictions in natural units
+            % YhatC --> Predictions in coded units
+            %--------------------------------------------------------------
+            C = obj.codeX( X );
+            YhatC = obj.FitModelObj.predictions( C );
+            Yhat = obj.decodeY( YhatC );
+        end % makePredictions
+        
+        function [ Yhat, YhatC, X ] = makePRMpredictions( obj, X )
+            %--------------------------------------------------------------
+            % Prediction calculations for the PRM case
+            %            
+            % [ Yhat, YhatC ] = obj.makePRMpredictions( X );
+            %
+            % Input Arguments:
+            %
+            % X     --> Regressor vector in natural units {obj.X}
+            %
+            % Output Arguments:
+            %
+            % Yhat  --> Predictions in natural units
+            % YhatC --> Predictions in coded units
+            % X     --> Adjusted length due to prediction process
+            %-------------------------------------------------------------- 
+            if ( numel( X ) == 1 )
+                %----------------------------------------------------------
+                % Add an extra data point 30 seconds before if only one piece
+                % of data
+                %----------------------------------------------------------
+                X = [ X - 1/120; X ];
+            end
+            %--------------------------------------------------------------
+            % Interpolate the corresponding Y-data
+            %--------------------------------------------------------------
+            Ycode = interp1( obj.X, obj.Y, X, 'linear' );
+            Xcode = obj.codeX( X );
+            Ycode = obj.codeY( Ycode );
+            Xcode = [ Xcode, Ycode ];
+            YhatC = obj.FitModelObj.predictions( Xcode );
+            Yhat = obj.decodeY( YhatC );
+            X = X( 2:end );
+        end % makePRMpredictions
     end % private methods
 end
 

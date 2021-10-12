@@ -1,31 +1,31 @@
-classdef hrm < RegFit.fitModel
-    % Hoster-Burrell (Lancaster) relaxation model
-    
-    properties 
+classdef mrm < RegFit.fitModel
+    % Relaxation model due to Meng, J., Stroe, D.I., Ricco, M., Luo, G.,...
+    % Swierczynski, M. and Teodorescu, R., 2018. A novel multiple ...
+    % correction approach for fast open circuit voltage prediction of ...
+    % lithium-ion battery. IEEE Transactions on Energy Conversion,...
+    % 34(2), pp.1115-1123.
+
+    properties
         Theta       double                                                  % Model parameter vector
         LB          double                                                  % Lower bound constraint for parameters
         UB          double                                                  % Upper bound constraint for parameters
     end
     
     properties ( SetAccess = protected )
-        ParNames    string      = [ "A_0", "A_1", "A_2", "A_3" ]            % Parameter Names
+        ParNames    string      = [ "K_1", "K_2", "K_3" ]                   % Parameter Names
     end
     
     properties ( Constant = true )
-        NumFitCoeff int8   = 4                                              % Number of parameters to estimate from the data
-        ModelName   RegFit.fitModelType         = "hrm"                     % Model name
-    end    
-    
-    properties ( Access = private, Dependent = true )
-        NfitC_      double                                                  % Number of fit coefficients converted to double
-    end 
+        NumFitCoeff int8   = 3                                              % Number of parameters to estimate from the data
+        ModelName   RegFit.fitModelType         = "mrm"                     % Model name
+    end     
     
     methods
-        function obj = hrm( ReEstObj )
+        function obj = mrm( ReEstObj )
            %--------------------------------------------------------------
             % class constructor
             %
-            % obj = RegFit.hrm( ReEstObj );
+            % obj = RegFit.mrm( ReEstObj );
             %
             % Input Arguments:
             %
@@ -38,7 +38,7 @@ classdef hrm < RegFit.fitModel
             end
             obj.ReEstObj = ReEstObj;
         end % constructor
-        
+                
         function J = jacobean( obj, X, Beta )                                        
             %--------------------------------------------------------------
             % Return Jacobean matrix
@@ -49,23 +49,20 @@ classdef hrm < RegFit.fitModel
             %
             % X       --> Dependent data
             % Beta    --> Coefficient Vector {obj.Theta}. Assumed format:
-            %             [a0, a1, a2, a3].'
+            %             [k1, k2, k3].'
             %
             % Output Arguments:
-            %
-            % J       --> Jacobean: [df_da0, df_da1, df_da2, df_da3]
+            % J       --> Jacobean: [df_dk1, df_dk2, df_dk3]
             %--------------------------------------------------------------
             if ( nargin < 3 )
                 Beta = obj.Theta;                                           % Apply default
             end
             X = X( : );                                                     % Make column vector
-            [ ~, A1, A2, A3 ] = obj.assignPars( Beta );                     % Retrieve parameters
+            [  K1, K2, ~ ] = obj.assignPars( Beta );                        % Retrieve parameters
             %--------------------------------------------------------------
             % Calculate Jacobean for the HRM model
             %--------------------------------------------------------------
-            J = [ ones( numel( X ), 1 ), log(1 - A2.*exp(-X./A3)),...
-                (A1.*exp(-X./A3))./(A2.*exp(-X./A3) - 1),...
-                (A1.*A2.*X.*exp(-X./A3))./(A3.^2.*(A2.*exp(-X./A3) - 1) ) ];
+            J = [ X.^K2, K1.*X.^K2.*log(X), ones( size( X ) ) ];
         end % jacobean
         
         function Yhat = predictions( obj, X, Beta )                                  
@@ -78,14 +75,14 @@ classdef hrm < RegFit.fitModel
             %
             % X       --> Independent data
             % Beta    --> Coefficient Vector {obj.Theta}. Assumed format:
-            %             [A0, A1, A2, A3].'
+            %             [K1, K2, K3].'
             %--------------------------------------------------------------       
             if ( nargin < 3 )
                 Beta = obj.Theta;                                           % Apply default
             end
             X = X( : );                                                     % Vec operator (column vector)
-            [ A0, A1, A2, A3 ] = obj.assignPars( Beta );                    % Assign the parameters
-            Yhat = A0 + A1 * log( 1 - A2 * exp( -X./A3 ) );                 % Compute the predictions
+            [ K1, K2, K3 ] = obj.assignPars( Beta );                        % Assign the parameters
+            Yhat = K3 + K1 * X.^( K2 );                                     % Compute the predictions
         end % predictions
         
         function V = startingValues( obj, X, Y )                            %#ok<INUSL>
@@ -101,14 +98,13 @@ classdef hrm < RegFit.fitModel
             %--------------------------------------------------------------
             X = X( : );
             Y = Y( : );
-            A0 = 1.01*max(Y);
-            A1 = 1.01*max(Y);
-            G = log( 1 - exp( ( Y - A0 )/ A1 ) );
-            Z = [ ones( size( X ) ) X ];
+            K3 = 0.999*min( Y );
+            G = log( Y - K3 );
+            Z = [ ones( size( X ) ) log( X ) ];
             Q = Z \ G;
-            A2 = exp( Q( 1 ) );
-            A3 = -1 / Q( 2 );
-            V = [ A0, A1, A2, A3 ].';
+            K1 = exp( Q( 1 ) );
+            K2 = Q( 2 );
+            V = [ K1, K2, K3 ].';
         end % startingValues
         
         function obj = setCoefficientBnds( obj, LB, UB )
@@ -128,68 +124,8 @@ classdef hrm < RegFit.fitModel
             else
                 error('Arguments must have %2.0d elements', obj.NumFitCoeff );
             end
-        end
+        end        
     end % constructor and ordinary methods
-    
-    methods
-        function N = get.NfitC_( obj )
-            N = double( obj.NumFitCoeff );
-        end
-    end % set/get methods
-    
-    methods ( Access = protected )
-        function C = mleConstraints( obj, Beta, varargin )                  %#ok<INUSL>
-            %--------------------------------------------------------------
-            % Provide custom constraints for optimisation. See help for
-            % fmincon for definitions.
-            %
-            % Input Arguments:
-            %
-            % Beta  --> Coefficient vector. Decision variables for
-            %           optimisation of the cost function for RIGLS
-            %
-            % Output Arguments:
-            %
-            % C     --> Structure of constraints with fields:
-            %           Aineq       --> Linear inequality constraint
-            %                           coefficient matrix.
-            %           bineq       --> Linear inequality constraints bound
-            %                           matrix.
-            %           Aeq         --> Linear equality constraint
-            %                           coefficient matrix.
-            %           beq         --> Linear equality constraints bound
-            %                           matrix.
-            %           nonlcon     --> Nonlinear constraints function
-            %--------------------------------------------------------------
-            C.Aineq = [];
-            C.bineq = [];
-            C.Aeq = [];
-            C.beq = [];
-            C.nonlcon = @( Beta )obj.nonlincon( Beta, varargin{:} );
-        end
-        
-        function [ C, Ceq ] = nonlincon( obj, Beta, ~, Y )
-            %--------------------------------------------------------------
-            % Overloaded method for nonlinear constraints
-            %
-            % [ C, Ceq ] = obj.nonlincon( Beta, X );
-            %
-            % Input Arguments:
-            %
-            % Beta  --> Fit parameters
-            % X     --> Regressor data vector
-            % Y     --> Response data vector
-            %
-            % Output Arguments:
-            %
-            % C     --> Inequality contraints
-            % Ceq   --> Equality constraints
-            %--------------------------------------------------------------
-            Ceq = [];
-            Ao = obj.assignPars( Beta );
-            C = max( Y ) - Ao;
-        end
-    end % protected methods    
     
     methods ( Static = true )
         function [X, W ] = processInputs( X, W )
@@ -206,7 +142,7 @@ classdef hrm < RegFit.fitModel
             P = ( X <= 0 );
             X = X( ~P );
             W = W( ~P );
-        end        
+        end       
         
         function [X, Y, W] = parseInputs( X, Y, W )
             %--------------------------------------------------------------
@@ -225,17 +161,16 @@ classdef hrm < RegFit.fitModel
             W = W( ~P );
         end % parseInputs
         
-        function [A0, A1, A2, A3] = assignPars( Beta )
+        function [K1, K2, K3] = assignPars( Beta )
             %--------------------------------------------------------------
             % Assign the parameter vector contents
             %
-            % [A0, A1, A2, A3] = obj.assignPars( Beta );
-            % [A0, A1, A2, A3] = RegFit.hrm.assignPars( Beta );
+            % [K1, K2, K3] = obj.assignPars( Beta );
+            % [K1, K2, K3] = RegFit.hrm.assignPars( Beta );
             %--------------------------------------------------------------
-            A0 = Beta(1);
-            A1 = Beta(2);
-            A2 = Beta(3);                                                   
-            A3 = Beta(4);
+            K1 = Beta( 1 );
+            K2 = Beta( 2 );                                                   
+            K3 = Beta( 3 );
         end % assignPars
     end % static methods
-end % hrm
+end % mrm class

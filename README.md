@@ -39,3 +39,11 @@ and compact.
 Added truncated power series spline model for SoH predictive purposes. 
 
 Added nonlinear constraints implementation - useful for splines.
+
+Version 4.0 Added relaxation model classes 30/09/2021
+
+hrm.m       Lancaster relaxation model
+mrm.m       Meng et al relaxation model
+prm.m       Pei et al relaxation model
+yrm.m       Yang et al relaxation model
+

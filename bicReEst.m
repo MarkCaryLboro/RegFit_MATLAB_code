@@ -64,7 +64,7 @@ classdef bicReEst < RegFit.reEstLamda
                 %----------------------------------------------------------
                 % Clip Lamda to zero
                 %----------------------------------------------------------
-                Lam = max([sqrt(eps), Lam]);
+                Lam = max([ 0, Lam ]);
                 %----------------------------------------------------------
                 % Apply convergence test
                 %----------------------------------------------------------
@@ -95,7 +95,7 @@ classdef bicReEst < RegFit.reEstLamda
             Sigma2 = Q.'*( eye( N ) - S )^2*Q/N;                            % Variance scale parameter
             DLdLam = Q.'*Z*(IA^3)*Z.'*Q;                                    % Derivative of the likelihood with respect to Lamda
             DdoFdLam = trace( IA - Lam*IA^2 );                              % Derivative of DoF with respect to Lamda
-            NewLam = Sigma2*log(N)*DdoFdLam/DLdLam/2/N;                     % Updated hyper-parameter estimate
+            NewLam = Sigma2*log(N)*DdoFdLam/DLdLam/2;                       % Updated hyper-parameter estimate
         end        
     end % protected methods
 end
