@@ -18,10 +18,10 @@ classdef regNonlinIGLS
         Created = datetime( 'now' )                                         % Date and time object was created
     end
     
-    properties ( Access = private )
+    properties ( Access = protected )
         X_                  double                                          % Parsed regressor vector
         Y_                  double                                          % Parsed observed data vector
-    end % private properties
+    end % protected properties
     
     properties ( SetAccess = protected )
         FitModelObj         { mustBeFitModelObj( FitModelObj ) }            % Regularised fit model object
@@ -31,8 +31,6 @@ classdef regNonlinIGLS
     
     properties ( Access = private )
         N_                   double                                         % Number of points used for fitting
-        X_                   double                                         % Regressor vector
-        Y_                   double                                         % Observed data vector
     end % private properties
     
     properties ( SetAccess = protected, Dependent = true )
@@ -194,8 +192,6 @@ classdef regNonlinIGLS
             %--------------------------------------------------------------
             % ROLS fit
             %--------------------------------------------------------------
-            [ obj.X_, obj.Y_ ] = obj.FitModelObj.parseInputs( obj.X, obj.Y,...
-                                                            obj.W );
             obj.FitModelObj = obj.FitModelObj.mleRegTemplate( obj.Xc,...
                 obj.Yc, obj.W, obj.NumCovPar, Options );
         end
@@ -265,7 +261,6 @@ classdef regNonlinIGLS
             if ( nargin < 2 )
                 X = obj.X_;                                                 % Apply default
             end 
-            X = X(:);
             C = obj.codeX( X );
             J = obj.FitModelObj.jacobean( C );
         end % jacobean
@@ -320,7 +315,7 @@ classdef regNonlinIGLS
             % SE = obj.stdErrors();
             %
             %--------------------------------------------------------------
-            SE = obj.FitModelObj.stdErrors( obj.Xc, obj.W );
+            SE = obj.Sigma*obj.FitModelObj.stdErrors( obj.Xc, obj.W );
         end
         
         function [LCI, UCI] = confInt( obj, P )
@@ -345,7 +340,7 @@ classdef regNonlinIGLS
                 P = 0.05;
             end
             DF = obj.N_ - obj.TotalNumPar;
-            SE = obj.Sigma*obj.stdErrors();
+            SE = obj.stdErrors();
             T = abs(tinv( 0.5*P, DF ));                                     % T-statistic
             LCI = obj.Theta - SE*T;                                         % Lower C.I.
             UCI = obj.Theta + SE*T;                                         % Upper C.I.
@@ -539,7 +534,7 @@ classdef regNonlinIGLS
             %--------------------------------------------------------------
             [A, B, Ac, Bc] = obj.codeLimitsX();
             M = ( ( Bc - Ac )/( B - A ) );
-            C = M*( X - A ) + Ac;
+            C = M*( X( :,1 ) - A ) + Ac;
         end
         
         function [A, B, Ac, Bc] = codeLimitsX( obj )
