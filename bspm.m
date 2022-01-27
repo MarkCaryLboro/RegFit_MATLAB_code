@@ -17,11 +17,14 @@ classdef bspm < RegFit.fitModel
                                   mustBeNonempty( D ),...
                                   mustBeInteger( D ) } = 3
         MetaData    struct                                                  % Metadata structure
+    end % immutable properties
+    
+    properties ( SetAccess = protected )
         DeltaKnot   double      { mustBePositive( DeltaKnot ),...           % Minimum knot difference
                                   mustBeFinite( DeltaKnot ),...
                                   mustBeReal( DeltaKnot ),... 
-                                  mustBeNonempty( DeltaKnot ) } = 0.05;
-    end % immutable properties
+                                  mustBeNonempty( DeltaKnot ) } = 0.01;
+    end % SetAccess = protected
     
     properties ( SetAccess = protected, Dependent = true )
         K           double                                                  % Knot sequence
@@ -259,7 +262,7 @@ classdef bspm < RegFit.fitModel
     end % Get/Set methods
     
     methods ( Access = protected )
-        function C = mleConstraints( obj, Beta ) 
+        function C = mleConstraints( obj, Beta, ~, ~ ) 
             %--------------------------------------------------------------
             % Provide custom constraints for optimisation. See help for
             % fmincon for definitions.
@@ -286,8 +289,8 @@ classdef bspm < RegFit.fitModel
             C.Aeq = [];
             C.beq = [];
             C.nonlcon = [];
-        end
-    end
+        end % mleConstraints
+    end % protected methods
     
     methods ( Access = private )
         function [ Aineq, Bineq ] = genIneqCon( obj, Beta )                 %#ok<INUSD>
@@ -318,7 +321,7 @@ classdef bspm < RegFit.fitModel
                 for Q = 1:( obj.Nk - 1 )
                     %----------------------------------------------------------
                     % Knots are in strictly increasing order. Ensure difference
-                    % is greater than 0.05 on the coded scale.
+                    % is greater than 0.01 on the coded scale.
                     %----------------------------------------------------------
                     Aineq( Q, Q:( Q + 1 ) ) = [ 1, -1 ];
                 end

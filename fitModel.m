@@ -113,7 +113,7 @@ classdef fitModel
                 Res = obj.calcResiduals( X, Y, X0 );
                 J = obj.jacobean( X, X0 );
                 Lam0 = obj.ReEstObj.initialLam( Res, W, J, NumCovPar,...
-                                                [1e-14, 1], 9 );
+                                                [1e-12, 1], 13 );
                 obj.ReEstObj = obj.ReEstObj.setLamda2Value( Lam0 );
             else
                 X0 = obj.Theta;
@@ -317,7 +317,7 @@ classdef fitModel
     end % get/set methods
     
     methods ( Access = protected )     
-        function C = mleConstraints( obj, Beta, ~, ~ )                         %#ok<INUSD>
+        function C = mleConstraints( obj, Beta, X, Y )                         %#ok<INUSD>
             %--------------------------------------------------------------
             % Provide custom constraints for optimisation. See help for
             % fmincon for definitions.

@@ -46,7 +46,7 @@ classdef reEstLamda
             %--------------------------------------------------------------
             % Compute starting value
             %--------------------------------------------------------------
-            Lam = obj.initialLam( Res, W, J, NumCovPar, [1e-14, 1], 7 );
+            Lam = obj.initialLam( Res, W, J, NumCovPar, [1e-14, 1], 15 );
             %--------------------------------------------------------------
             % Optimise the Lamda value
             %--------------------------------------------------------------
@@ -113,7 +113,7 @@ classdef reEstLamda
             % Generate convergence plots if required
             %--------------------------------------------------------------
             if Flg
-                obj.convergencePlot( Int, Flam, DhDlam );
+                obj.convergencePlot( Int, abs( Flam ), DhDlam );
             end
             if ~IntOk
                 %----------------------------------------------------------
@@ -383,7 +383,7 @@ classdef reEstLamda
             plot( Int, DhDlam, 'rs-', 'linewidth', 2, 'markerfacecolor', 'red' );
             Rax.XScale = 'log';
             Rax.YScale = 'log';
-            ylabel('df(\lambda)/(\lambda)','FontSize',16);
+            ylabel('df(\lambda)/d(\lambda)','FontSize',16);
             grid on;
         end
     end % static methods

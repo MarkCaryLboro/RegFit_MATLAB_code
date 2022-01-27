@@ -98,7 +98,9 @@ classdef aicReEst < RegFit.reEstLamda
                 (2*G)/(G - N + 1);
             DLdLam = Q.'*Z*(IA^3)*Z.'*Q;                                    % Derivative of the likelihood with respect to Lamda
             DdoFdLam = trace( IA - Lam*IA^2 );                              % Derivative of DoF with respect to Lamda
-            NewLam = Sigma2*M*DdoFdLam./DLdLam;                             % Updated hyper-parameter estimate
+            NewLam = Sigma2*M*DdoFdLam./DLdLam/2/N;                         % Updated hyper-parameter estimate
+            NewLam = max( [ NewLam, eps ] );                                % Clip to machine precision
+            NewLam = min( [ NewLam, 1 ] );                                  % Clip to 1.
         end        
     end % protected methods
     
