@@ -11,12 +11,12 @@ classdef tpss < RegFit.fitModel
         Nk          int8        { mustBePositive( Nk ),...                  % Number of knots
                                   mustBeFinite( Nk ), mustBeReal( Nk ),... 
                                   mustBeNonempty( Nk ),...
-                                  mustBeInteger( Nk ) } = 1                                              
+                                  mustBeInteger( Nk ) } = 1    
+        D           int8        { mustBePositive( D ),...                   % Degree of interpolating polynomial
+                                  mustBeFinite( D ), mustBeReal( D ),... 
+                                  mustBeNonempty( D ),...
+                                  mustBeInteger( D ) } = 2
         MetaData    struct                                                  % Metadata structure
-        DeltaKnot   double      { mustBePositive( DeltaKnot ),...           % Minimum knot difference
-                                  mustBeFinite( DeltaKnot ),...
-                                  mustBeReal( DeltaKnot ),... 
-                                  mustBeNonempty( DeltaKnot ) } = 0.02;
     end % immutable properties    
     
     properties ( Constant = true )
@@ -26,10 +26,10 @@ classdef tpss < RegFit.fitModel
     properties ( SetAccess = protected )
         ParNames    string                                                  % Parameter names
         Nb          int8                                                    % Number of basis functions
-        D           int8        { mustBePositive( D ),...                   % Degree of interpolating polynomial vector
-                                  mustBeFinite( D ), mustBeReal( D ),... 
-                                  mustBeNonempty( D ),...
-                                  mustBeInteger( D ) } = 2
+        DeltaKnot   double      { mustBePositive( DeltaKnot ),...           % Minimum knot difference
+                                  mustBeFinite( DeltaKnot ),...
+                                  mustBeReal( DeltaKnot ),... 
+                                  mustBeNonempty( DeltaKnot ) } = 0.01;
     end % protected properties
     
     properties ( Access = private )
@@ -63,15 +63,16 @@ classdef tpss < RegFit.fitModel
             %               temperature, voltage, pressure,...
             %--------------------------------------------------------------
             obj.ReEstObj = ReEstObj;
-            %--------------------------------------------------------------
-            % Assign the knots
-            %--------------------------------------------------------------
-            obj.Nk = Nk;
-            %--------------------------------------------------------------
-            % Define the interpolating polynomial functions between the
-            % knots
-            %--------------------------------------------------------------
-            obj.D = int8( D );
+            obj.Nk = Nk; 
+            if ( numel( D ) == ( obj.Nk + 1 ) )
+                obj.D = D;
+            elseif ( numel( D ) == 1 )
+                try
+                    obj.D = repmat( D, 1, obj.Nk + 1 );
+                catch
+                    obj.D = repmat( obj.D, 1, obj.Nk + 1 );
+                end
+            end
             %--------------------------------------------------------------
             % Assign auxilary data
             %--------------------------------------------------------------
@@ -310,7 +311,7 @@ classdef tpss < RegFit.fitModel
             % obj = obj.setCoefficientBnds();          % Use default bounds
             % obj = obj.setCoefficientBnds( LB, UB)    % Use custom bounds
             %
-            % The default bounds are [-1, 1] for the knots, while the basis
+            % The default bounds are [0, 1] for the knots, while the basis
             % function coefficients are undounded. These are highly
             % recommended.
             %
@@ -320,7 +321,7 @@ classdef tpss < RegFit.fitModel
             % UB    --> Upper bound vector for coefficients
             %--------------------------------------------------------------
             if ( nargin == 1 ) || ( numel( LB ) ~= ( obj.NumFitCoeff ) ) || ( numel( UB ) ~= ( obj.NumFitCoeff ) )
-                LB = [ -ones( obj.Nk, 1 ); -inf( obj.Nb, 1 ) ];
+                LB = [ zeros( obj.Nk, 1 ); -inf( obj.Nb, 1 ) ];
                 UB = [ ones( obj.Nk, 1 ); inf( obj.Nb, 1 ) ];
             end
             obj.LB = LB( : );
@@ -343,20 +344,10 @@ classdef tpss < RegFit.fitModel
             % Retrieve the total number of coefficients to be fitted
             N = obj.Nk + obj.Nb;
         end
-        
-        function obj = set.D( obj, Value )
-            % Make sure the vector of interpolating polynomials has the
-            % correct dimension (obj.Nk + 1)
-            if all( isinteger( Value ) ) && ( numel( Value ) == ( obj.Nk + 1) ) %#ok<MCSUP>
-                obj.D = int8( Value( : ) );
-            else
-                error('Property "D" not assigned');
-            end
-        end
     end % Get set methods
     
     methods ( Access = protected )
-        function C = mleConstraints( obj, Beta ) 
+        function C = mleConstraints( obj, Beta, ~, ~ ) 
             %--------------------------------------------------------------
             % Provide custom constraints for optimisation. See help for
             % fmincon for definitions.
@@ -404,6 +395,7 @@ classdef tpss < RegFit.fitModel
             % Ceq       --> Gradient smoothness equality constraint
             %--------------------------------------------------------------
             Cineq = [];
+%             Ceq = [];
             [ X, ~ ] = obj.assignPars( Beta, obj.Nk );
             for Q = 1:obj.Nk
                 %----------------------------------------------------------

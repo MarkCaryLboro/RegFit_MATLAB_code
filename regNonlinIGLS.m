@@ -179,10 +179,6 @@ classdef regNonlinIGLS
             % Remove any aberrant data
             %--------------------------------------------------------------
             if strcmpi( "PRM", obj.ModelName )
-                %----------------------------------------------------------
-                % TO DO - Need to alter architecture to allow parseInputs
-                % method to be overloaded
-                %----------------------------------------------------------
                 [ obj.X_, obj.Y_, obj.W ] = obj.FitModelObj.parseInputs( obj.X,...
                     obj.Y, obj.W, obj.FitModelObj.Tct );
             else
@@ -368,9 +364,12 @@ classdef regNonlinIGLS
             H{ 4 } = obj.dataVsPredPlot( Ax{ 4 } );
             for Q = 1:numel( Ax )
                 %----------------------------------------------------------
-                % Make the grid more visible and 
+                % Make the grid more visible and dashed
+                %----------------------------------------------------------
+                Ax{ Q }.GridAlpha = 0.75;
+                Ax{ Q }.GridLineStyle = "--";
             end
-        end
+        end % diagnosticPlotss
         
         function [ParameterVectors, Ave, StanDev] = bootStrapSamples( obj, Nboot )
             %--------------------------------------------------------------
@@ -488,6 +487,40 @@ classdef regNonlinIGLS
             K = obj.DoF + obj.NumCovPar;
         end
     end % set/get methods
+    
+    methods ( Access = protected )
+        function H = fitsPlot( obj, Ax, NumPts)
+            %--------------------------------------------------------------
+            % Model fits to data
+            %
+            % H = obj.fitsPlot( Ax, NumPts );
+            %
+            % Input Arguments:
+            %
+            % Ax        --> Axes handle
+            % NumPts    --> Number of hi res points for fitted line {101}
+            %
+            % Output Arguments:
+            %
+            % H         --> Handle to line objects 
+            %--------------------------------------------------------------
+            if ( nargin < 3 ) || ( NumPts < obj.N )
+                NumPts = 101;
+            end
+            Xhi = linspace( min( obj.X ), max( obj.X ), NumPts ).';
+            [Yhi, ~, Xhi] = obj.predictions( Xhi );
+            H = plot( Ax, obj.X, obj.Y, 'bo', Xhi, Yhi, 'r-' );
+            H(1).MarkerFaceColor = 'blue';
+            H(2).LineWidth = 2.0;
+            grid on
+            %--------------------------------------------------------------
+            % Annotate with labels and titles
+            %--------------------------------------------------------------
+            xlabel( obj.Xname );
+            ylabel( obj.Yname );
+            title('Model Fits')
+        end % fitsPlot
+    end % protected methods
     
     methods ( Access = private )
         function X = decodeX( obj, Xc )
@@ -618,7 +651,7 @@ classdef regNonlinIGLS
             lab = sprintf('Observed %s', obj.Yname);
             ylabel( lab);
             title('Data Versus Predicted');
-        end
+        end % dataVsPredPlot
         
         function H = normalPlot( obj, Ax ) 
             %--------------------------------------------------------------
@@ -639,7 +672,7 @@ classdef regNonlinIGLS
             H = normplot( Ax, Res );
             lab = sprintf('Weighted Residual %s', obj.Yname);
             xlabel( lab );
-        end
+        end % normalPlot
         
         function H = weightedResPlot( obj, Ax ) 
             %--------------------------------------------------------------
@@ -666,36 +699,7 @@ classdef regNonlinIGLS
             lab = sprintf('Weighted Residual %s', obj.Yname);
             ylabel( lab );
             title('Weighted Residual Vs. Prediction');
-        end
-        
-        function H = fitsPlot( obj, Ax, NumPts)
-            %--------------------------------------------------------------
-            % Model fits to data
-            %
-            % H = obj.fitsPlot( Ax, NumPts );
-            %
-            % Input Arguments:
-            %
-            % Ax        --> Axes handle
-            % NumPts    --> Number of hi res points for fitted line {101}
-            %
-            % Output Arguments:
-            %
-            % H         --> Handle to line objects 
-            %--------------------------------------------------------------
-            if ( nargin < 5 ) || ( NumPts < obj.N )
-                NumPts = 101;
-            end
-            Xhi = linspace( min( obj.X ), max( obj.X ), NumPts ).';
-            [Yhi, ~, Xhi] = obj.predictions( Xhi );
-            H = plot( Ax, obj.X, obj.Y, 'bo', Xhi, Yhi, 'r-' );
-            H(1).MarkerFaceColor = 'blue';
-            H(2).LineWidth = 2.0;
-            grid on
-            xlabel( obj.Xname );
-            ylabel( obj.Yname );
-            title('Model Fits')
-        end % fitsPlot
+        end % weightedResPlot
         
         function [ Yhat, YhatC ] = makePredictions( obj, X )
             %--------------------------------------------------------------
@@ -752,7 +756,7 @@ classdef regNonlinIGLS
             X = X( 2:end );
         end % makePRMpredictions
     end % private methods
-end
+end % classdef
 
 function mustBeCovModelObj( ModelObj )
     %----------------------------------------------------------------------
@@ -763,7 +767,7 @@ function mustBeCovModelObj( ModelObj )
     if ~isempty( ModelObj ) && ~isa( ModelObj.CovName,'RegFit.covModelType' )
         error( 'Unrecognised covariance model option' );
     end
-end
+end %mustBeCovModelObj
 
 function mustBeFitModelObj( ModelObj )
     %----------------------------------------------------------------------
@@ -774,4 +778,4 @@ function mustBeFitModelObj( ModelObj )
     if ~isempty( ModelObj ) && ~isa( ModelObj.ModelName,'RegFit.fitModelType' )
         error( 'Unrecognised fit model option' );
     end
-end
+end % mustBeFitModelObj

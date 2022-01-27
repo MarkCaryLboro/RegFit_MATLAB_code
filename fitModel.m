@@ -317,7 +317,7 @@ classdef fitModel
     end % get/set methods
     
     methods ( Access = protected )     
-        function C = mleConstraints( obj, Beta, ~, ~ )                         %#ok<INUSD>
+        function C = mleConstraints( obj, Beta, X, Y )                         %#ok<INUSD>
             %--------------------------------------------------------------
             % Provide custom constraints for optimisation. See help for
             % fmincon for definitions.
