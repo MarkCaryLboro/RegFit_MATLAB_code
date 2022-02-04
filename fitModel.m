@@ -112,8 +112,7 @@ classdef fitModel
                 X0 = obj.startingValues( X, Y );
                 Res = obj.calcResiduals( X, Y, X0 );
                 J = obj.jacobean( X, X0 );
-                Lam0 = obj.ReEstObj.initialLam( Res, W, J, NumCovPar,...
-                                                [1e-12, 1], 13 );
+                Lam0 = obj.ReEstObj.initialLam( Res, W, J, NumCovPar );
                 obj.ReEstObj = obj.ReEstObj.setLamda2Value( Lam0 );
             else
                 X0 = obj.Theta;
@@ -205,7 +204,7 @@ classdef fitModel
             if ( nargin < 4 )
                 Beta = obj.Theta;
             end
-            [ X, W ] = obj.processInputs( X, W );
+%             [ X, W ] = obj.processInputs( X, W );
             J = obj.jacobean( X, Beta );
             [ ~, Z ] = obj.ReEstObj.calcSmatrix( obj.Lamda, W, J );
             H = ( Z.'*Z + obj.Lamda*eye( obj.NumFitCoeff ) )\eye( obj.NumFitCoeff );

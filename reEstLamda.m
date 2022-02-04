@@ -46,7 +46,7 @@ classdef reEstLamda
             %--------------------------------------------------------------
             % Compute starting value
             %--------------------------------------------------------------
-            Lam = obj.initialLam( Res, W, J, NumCovPar, [1e-14, 1], 15 );
+            Lam = obj.initialLam( Res, W, J, NumCovPar );
             %--------------------------------------------------------------
             % Optimise the Lamda value
             %--------------------------------------------------------------
@@ -68,16 +68,16 @@ classdef reEstLamda
             % J         --> Jacobean matrix 
             % NumCovPar --> Number of covariance model parameters
             % Int       --> 1x2 vector of Lamda interval limits 
-            %               {[1e-12, 100]}
-            % Num       --> Number of samples for interval {13}
+            %               {[1e-4, 1]}
+            % Num       --> Number of samples for interval {10}
             % Flg       --> Set to true to generate convergence plot
             %               {false}
             %--------------------------------------------------------------
             if ( nargin < 6 ) || isempty( Int )
-                Int = [1e-14, 1];
+                Int = [1e-4, 1];
             end
             if ( nargin < 7 ) || isempty( Num )
-                Num = 7;
+                Num = 10;
             end
             if ( nargin < 8 ) || isempty( Flg ) || ~Flg
                 Flg = false;
