@@ -9,6 +9,7 @@ classdef reEstLamda
                         mustBeFinite( Lamda ), mustBeReal( Lamda )} = 0.001
         DoF     double {mustBeGreaterThan( DoF, 0 ),...                     % Effective number of parameters
                         mustBeFinite( DoF ), mustBeReal( DoF )}
+        FixLam  logical = false                                             % Flag indicating fixed lamda is required            
     end
     
     methods ( Abstract = true )
@@ -46,15 +47,16 @@ classdef reEstLamda
             %--------------------------------------------------------------
             % Compute starting value
             %--------------------------------------------------------------
-            Lam = obj.initialLam( Res, W, J, NumCovPar );
+            [ Lam, DisableIter ] = obj.initialLam( Res, W, J, NumCovPar );
+            obj.FixLam = DisableIter;
             %--------------------------------------------------------------
             % Optimise the Lamda value
             %--------------------------------------------------------------
             obj = obj.reEstTemplate( Lam, Res,...
                 W, J, NumCovPar, MaxIter );
-        end
+        end % optimiseLamda
         
-        function Lam0 = initialLam( obj, Res, W, J, NumCovPar, Int, Num, Flg )
+        function [ Lam0, LamFlg ] = initialLam( obj, Res, W, J, NumCovPar, Int, Num, Flg )
             %--------------------------------------------------------------
             % Select best hyper-parameter in interval supplied.
             %
@@ -72,6 +74,11 @@ classdef reEstLamda
             % Num       --> Number of samples for interval {10}
             % Flg       --> Set to true to generate convergence plot
             %               {false}
+            %
+            % Output Arguments:
+            %
+            % Lam0      --> (double) initial lamda value
+            % LamFlg    --> (logical) set to true to disable iteration
             %--------------------------------------------------------------
             if ( nargin < 6 ) || isempty( Int )
                 Int = [1e-4, 1];
@@ -119,8 +126,10 @@ classdef reEstLamda
                 %----------------------------------------------------------
                 % Warn convergence is not guaranteed
                 %----------------------------------------------------------
-                Lam0 = 0.001;
-                warning( 'Initial Value for Lambda = %6.5e Value Not Guaranteed to Converge', Lam0 );
+                [ ~, Idx ] = min( DhDlam );
+                Lam0 = Int( Idx );
+                LamFlg = true;
+                warning( 'Initial Value for Lambda = %6.5e. Fixed point iteration disabled', Lam0 );
             else
                 %----------------------------------------------------------
                 % Return best initial lamda
@@ -129,8 +138,9 @@ classdef reEstLamda
                 Int = Int( Ok );
                 [ ~, Idx ] = min( DhDlam );
                 Lam0 = Int( Idx );
+                LamFlg = false;
             end
-        end
+        end % initialLam
         
         function obj = reEstTemplate( obj, Lam, Res, W, J, NumCovPar, MaxIter )
             %--------------------------------------------------------------
@@ -154,15 +164,15 @@ classdef reEstLamda
             elseif MaxIter < 1
                 MaxIter = 1;                                                % Must have at least one iteration
             end
-            try
+            if ~obj.FixLam
                 obj.Lamda = obj.calculateLamda( Lam, Res, W,...
                     J, NumCovPar, MaxIter );                                % Update lamda
-            catch
-                obj.Lamda = Lam;
+            else
+                obj = obj.setLamda2Value( Lam );
             end
             obj = obj.calcDoF( W, J );                                      % Update DoF
             obj = obj.getMeasure( obj.Lamda, Res, W, J, NumCovPar );        % Return the performance measure
-        end
+        end % reEstTemplate
     
         function [S, Z, A, IA] = calcSmatrix( obj, Lam, W, J )
             %--------------------------------------------------------------
@@ -187,7 +197,7 @@ classdef reEstLamda
             A = obj.calcAmatrix( Lam, Z );
             IA = A\eye( size( Z, 2 ) );
             S = Z*IA*Z.';
-        end
+        end % calcSmatrix
         
         function S2 = calcSigma2( obj, Res, W, J, Lam )
             %--------------------------------------------------------------
@@ -211,7 +221,25 @@ classdef reEstLamda
             Q = Res./C;                                                     % Weighted residual vector
             S = obj.calcSmatrix( Lam, W, J );                               % Return the necessary matrices
             S2 = Q.'*( eye( N ) - S )^2*Q/N;                                % Variance scale parameter
-        end
+        end % calcSigma2
+        
+        function obj = setFixLam( obj, Value )
+            %--------------------------------------------------------------
+            % Set the FixLam property. Set to true to disable fixed point
+            % iteration
+            %
+            % obj = obj.setFixLam( Value );
+            %
+            % Input Arguments:
+            %
+            % Value     --> (logical) set to true to disable fixed-point
+            %               interation
+            %--------------------------------------------------------------
+            if ( Value ~= true )
+                Value = false;
+            end
+            obj.FixLam =  Value ;
+        end % setFixLam
         
         function obj = setLamda2Value( obj, Value )
             %--------------------------------------------------------------
@@ -224,7 +252,7 @@ classdef reEstLamda
             % Value     --> Lamda >= 0
             %--------------------------------------------------------------
             obj.Lamda = Value;
-        end
+        end % setLamda2Value
         
         function obj = calcDoF( obj, W, J, Lam )
             %--------------------------------------------------------------
@@ -244,7 +272,7 @@ classdef reEstLamda
             end
             S = obj.calcSmatrix( Lam, W, J );
             obj.DoF = real ( trace( S ) );
-        end
+        end % calcDoF
         
         function DHDL = firstDerivative( obj, W, J, Res, Lam, NumCovPar )
             %--------------------------------------------------------------
@@ -268,7 +296,7 @@ classdef reEstLamda
                 DHDL( Q + 3 ) = obj.calcNewLam( W, J, Res, DLam, NumCovPar );
             end
             DHDL = (-DHDL(:,5) + 8*DHDL(:,4) - 8*DHDL(:,2) + DHDL(:,1))./(12*H);
-        end
+        end % firstDerivative
     end % constructor and ordinary methods
     
     methods ( Access = protected )   

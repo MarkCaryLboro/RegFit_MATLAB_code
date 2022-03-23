@@ -36,8 +36,13 @@ classdef prm < RegFit.fitModel
             % ReEstObj  --> RegFit.reEstLamda object. Implements
             %               regularisation parameter re-estimation 
             %               algorithm.
-            % Tct       --> 
-            %--------------------------------------------------------------            
+            % Tct       --> Time for charge over potential to decay [h].
+            %               Typically 1/60 hours
+            %--------------------------------------------------------------       
+            arguments
+                ReEstObj    (1,1)       { mustBeNonempty( ReEstObj ) }
+                Tct         (1,1)       double = 1/60
+            end
             obj = obj.setTct( Tct );
             obj.ReEstObj = ReEstObj;
         end % constructor
