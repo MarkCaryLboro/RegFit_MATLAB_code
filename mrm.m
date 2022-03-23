@@ -158,7 +158,9 @@ classdef mrm < RegFit.fitModel
             P = ( X <= 0 ) | ( Y <= 0 );
             X = X( ~P );
             Y = Y( ~P );
-            W = W( ~P );
+            if ( nargin > 2 ) || ~isempty( W )
+                W = W( ~P );
+            end
         end % parseInputs
         
         function [K1, K2, K3] = assignPars( Beta )

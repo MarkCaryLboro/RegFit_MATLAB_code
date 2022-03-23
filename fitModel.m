@@ -71,7 +71,11 @@ classdef fitModel
             % Update the lamda value
             %--------------------------------------------------------------
             J = obj.jacobean( X, Beta );
-            obj.ReEstObj = obj.ReEstObj.optimiseLamda( Res, W, J, NumCovPar );
+            %----------------------------------------------------------
+            % Iterate Lamda
+            %----------------------------------------------------------
+            obj.ReEstObj = obj.ReEstObj.optimiseLamda( Res, W, J, ...
+                                                       NumCovPar );
             Lam = obj.ReEstObj.Lamda;
             %--------------------------------------------------------------
             % Regularised weighted least squares
@@ -98,7 +102,7 @@ classdef fitModel
             if ( nargin <  4 ) || isempty( W )
                 W = ones( size( X ) );
             end
-            
+            [ X, Y, W ] = obj.parseInputs( X, Y, W );
             if ( nargin < 6)
                 Options = optimoptions( 'fmincon' );
                 Options.Display = 'Iter';
@@ -112,8 +116,10 @@ classdef fitModel
                 X0 = obj.startingValues( X, Y );
                 Res = obj.calcResiduals( X, Y, X0 );
                 J = obj.jacobean( X, X0 );
-                Lam0 = obj.ReEstObj.initialLam( Res, W, J, NumCovPar );
+                [ Lam0, DisableIter ] = obj.ReEstObj.initialLam( Res, W,...
+                                        J, NumCovPar );
                 obj.ReEstObj = obj.ReEstObj.setLamda2Value( Lam0 );
+                obj.ReEstObj = obj.ReEstObj.setFixLam( DisableIter );
             else
                 X0 = obj.Theta;
             end
