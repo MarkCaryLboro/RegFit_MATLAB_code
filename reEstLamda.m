@@ -1,3 +1,4 @@
+
 classdef reEstLamda
     % Re-estimation of regularisation parameter for ridge regression
     properties ( SetAccess = protected, Abstract = true )
@@ -81,10 +82,10 @@ classdef reEstLamda
             % LamFlg    --> (logical) set to true to disable iteration
             %--------------------------------------------------------------
             if ( nargin < 6 ) || isempty( Int )
-                Int = [1e-4, 1];
+                Int = [1e-6, 1];
             end
             if ( nargin < 7 ) || isempty( Num )
-                Num = 10;
+                Num = 21;
             end
             if ( nargin < 8 ) || isempty( Flg ) || ~Flg
                 Flg = false;
