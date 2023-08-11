@@ -1,3 +1,4 @@
+
 classdef reEstLamda
     % Re-estimation of regularisation parameter for ridge regression
     properties ( SetAccess = protected, Abstract = true )
